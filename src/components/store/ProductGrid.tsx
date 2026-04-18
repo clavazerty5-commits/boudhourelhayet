@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useStore } from '@/lib/store';
+import { getTranslation, getDirection, getLocalizedName } from '@/lib/i18n';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { PackageOpen } from 'lucide-react';
@@ -16,6 +17,9 @@ export default function ProductGrid() {
   const selectedCategory = useStore((s) => s.selectedCategory);
   const searchQuery = useStore((s) => s.searchQuery);
   const setSelectedCategory = useStore((s) => s.setSelectedCategory);
+  const locale = useStore((s) => s.locale);
+  const t = getTranslation(locale);
+  const dir = getDirection(locale);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -47,19 +51,19 @@ export default function ProductGrid() {
 
   // Filter products
   const filteredProducts = products.filter((product) => {
-    // Category filter
     if (selectedCategory && product.categoryId !== selectedCategory) {
       return false;
     }
 
-    // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       const matchesSearch =
         product.name?.toLowerCase().includes(query) ||
         product.nameAr?.toLowerCase().includes(query) ||
+        product.nameFr?.toLowerCase().includes(query) ||
         product.description?.toLowerCase().includes(query) ||
         product.descriptionAr?.toLowerCase().includes(query) ||
+        product.descriptionFr?.toLowerCase().includes(query) ||
         product.sku?.toLowerCase().includes(query);
       if (!matchesSearch) return false;
     }
@@ -67,18 +71,14 @@ export default function ProductGrid() {
     return true;
   });
 
-  // Loading skeleton
   if (loading) {
     return (
       <div className="space-y-6 px-4 sm:px-6">
-        {/* Category tabs skeleton */}
         <div className="flex gap-3 overflow-hidden">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-9 w-20 rounded-full shrink-0" />
           ))}
         </div>
-
-        {/* Product grid skeleton */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="space-y-3">
@@ -94,7 +94,7 @@ export default function ProductGrid() {
   }
 
   return (
-    <div className="space-y-6 px-4 sm:px-6">
+    <div dir={dir} className="space-y-6 px-4 sm:px-6">
       {/* Category Filter Tabs */}
       <div className="flex items-center gap-3">
         <ScrollArea className="flex-1">
@@ -107,7 +107,7 @@ export default function ProductGrid() {
                   : 'bg-muted text-muted-foreground hover:bg-muted/80'
               }`}
             >
-              الكل
+              {t.all}
             </button>
             {categories.map((category) => (
               <button
@@ -119,7 +119,7 @@ export default function ProductGrid() {
                     : 'bg-muted text-muted-foreground hover:bg-muted/80'
                 }`}
               >
-                {category.nameAr ?? category.name}
+                {getLocalizedName(category, locale)}
               </button>
             ))}
           </div>
@@ -130,7 +130,7 @@ export default function ProductGrid() {
       {/* Product Count */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {filteredProducts.length} منتج
+          {filteredProducts.length} {t.products}
         </p>
       </div>
 
@@ -145,11 +145,10 @@ export default function ProductGrid() {
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <PackageOpen className="w-16 h-16 text-muted-foreground/40 mb-4" />
           <h3 className="text-lg font-semibold text-muted-foreground mb-2">
-            لا توجد منتجات
+            {t.noProducts}
           </h3>
           <p className="text-sm text-muted-foreground/70 max-w-sm">
-            لم نتمكن من العثور على منتجات تطابق بحثك. جرب تغيير الفلتر أو
-            كلمة البحث.
+            {t.noProductsDesc}
           </p>
         </div>
       )}
