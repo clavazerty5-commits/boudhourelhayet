@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useStore } from '@/lib/store';
-import type { Product, Category, Order } from '@/types';
+import type { Product, Category, Order, Employee } from '@/types';
 
 // shadcn/ui components
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -67,6 +67,11 @@ import {
   CalendarDays,
   ChevronDown,
   ChevronUp,
+  Users,
+  UserPlus,
+  UserCog,
+  Shield,
+  UserCheck,
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -96,6 +101,13 @@ interface StoreSettingsData {
   [key: string]: string;
 }
 
+interface EmployeeFormData {
+  name: string;
+  username: string;
+  password: string;
+  role: string;
+}
+
 const emptyProductForm: ProductFormData = {
   name: '',
   nameAr: '',
@@ -108,6 +120,13 @@ const emptyProductForm: ProductFormData = {
   sku: '',
   active: true,
   featured: false,
+};
+
+const emptyEmployeeForm: EmployeeFormData = {
+  name: '',
+  username: '',
+  password: '',
+  role: 'seller',
 };
 
 const ORDER_STATUS_MAP: Record<string, string> = {
@@ -128,9 +147,16 @@ const ORDER_STATUS_COLORS: Record<string, 'default' | 'secondary' | 'destructive
   cancelled: 'destructive',
 };
 
-const PAYMENT_STATUS_MAP: Record<string, string> = {
-  unpaid: 'غير مدفوع',
-  paid: 'مدفوع',
+const ROLE_MAP: Record<string, string> = {
+  admin: 'مدير',
+  seller: 'بائع',
+  seller_plus: 'بائع + إضافة منتجات',
+};
+
+const ROLE_COLORS: Record<string, string> = {
+  admin: 'bg-purple-100 text-purple-700 border-purple-200',
+  seller: 'bg-blue-100 text-blue-700 border-blue-200',
+  seller_plus: 'bg-emerald-100 text-emerald-700 border-emerald-200',
 };
 
 interface TreasuryData {
@@ -152,19 +178,52 @@ interface TreasuryData {
       customerName: string;
       paidAt: string | null;
       paymentMethod: string;
+      confirmedByName: string | null;
     }>;
   }>;
+  employeeSalesToday: Array<{
+    id: string;
+    name: string;
+    role: string;
+    confirmedToday: number;
+    confirmedTodayTotal: number;
+    createdToday: number;
+    createdTodayTotal: number;
+  }>;
+}
+
+// ─── Helper: Permission checks ─────────────────────────────────────────────
+
+function canManageProducts(role: string): boolean {
+  return role === 'admin' || role === 'seller_plus';
+}
+
+function canManageEmployees(role: string): boolean {
+  return role === 'admin';
+}
+
+function canManageSettings(role: string): boolean {
+  return role === 'admin';
+}
+
+function canManageFacebook(role: string): boolean {
+  return role === 'admin';
+}
+
+function canConfirmPayment(role: string): boolean {
+  return role === 'admin' || role === 'seller' || role === 'seller_plus';
 }
 
 // ─── AdminPanel Component ────────────────────────────────────────────────────
 
 export default function AdminPanel() {
-  const { isAdmin, setAdmin, adminTab, setAdminTab, setPage } = useStore();
+  const { isAdmin, setAdmin, adminTab, setAdminTab, setPage, currentEmployee, setCurrentEmployee } = useStore();
 
   // Data state
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [settings, setSettings] = useState<StoreSettingsData>({
     storeName: '',
     storeDescription: '',
@@ -179,6 +238,7 @@ export default function AdminPanel() {
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [productForm, setProductForm] = useState<ProductFormData>(emptyProductForm);
@@ -191,6 +251,15 @@ export default function AdminPanel() {
   const [syncingFacebook, setSyncingFacebook] = useState(false);
   const [treasury, setTreasury] = useState<TreasuryData | null>(null);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
+
+  // Employee management state
+  const [employeeDialogOpen, setEmployeeDialogOpen] = useState(false);
+  const [employeeForm, setEmployeeForm] = useState<EmployeeFormData>(emptyEmployeeForm);
+  const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
+  const [savingEmployee, setSavingEmployee] = useState(false);
+
+  // Current user role for permissions
+  const currentRole = currentEmployee?.role || 'admin';
 
   // ─── Data Fetching ───────────────────────────────────────────────────────
 
@@ -256,7 +325,6 @@ export default function AdminPanel() {
           shippingFee: data.shippingFee || '0',
           freeShippingThreshold: data.freeShippingThreshold || '',
         });
-        // Check if pixel is active from settings
         setPixelActive(!!data.facebookPixelId);
       }
     } catch (err) {
@@ -264,24 +332,62 @@ export default function AdminPanel() {
     }
   }, []);
 
+  const fetchEmployees = useCallback(async () => {
+    try {
+      const res = await fetch('/api/employees');
+      if (res.ok) {
+        const data = await res.json();
+        setEmployees(data.employees || []);
+      }
+    } catch (err) {
+      console.error('Error fetching employees:', err);
+    }
+  }, []);
+
   useEffect(() => {
     if (isAdmin) {
       setIsLoading(true);
-      Promise.all([fetchProducts(), fetchOrders(), fetchCategories(), fetchSettings(), fetchTreasury()]).finally(
-        () => setIsLoading(false)
-      );
+      const fetches = [fetchProducts(), fetchOrders(), fetchCategories(), fetchSettings(), fetchTreasury()];
+      if (canManageEmployees(currentRole)) {
+        fetches.push(fetchEmployees());
+      }
+      Promise.all(fetches).finally(() => setIsLoading(false));
     }
-  }, [isAdmin, fetchProducts, fetchOrders, fetchCategories, fetchSettings]);
+  }, [isAdmin, currentRole, fetchProducts, fetchOrders, fetchCategories, fetchSettings, fetchTreasury, fetchEmployees]);
 
   // ─── Login Handler ───────────────────────────────────────────────────────
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loginUsername === 'admin' && loginPassword === 'admin123') {
-      setAdmin(true);
-      setLoginError('');
-    } else {
-      setLoginError('اسم المستخدم أو كلمة المرور غير صحيحة');
+    setLoginLoading(true);
+    setLoginError('');
+    try {
+      const res = await fetch('/api/employees/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: loginUsername, password: loginPassword }),
+      });
+      if (res.ok) {
+        const emp = await res.json();
+        setAdmin(true);
+        setCurrentEmployee({
+          id: emp.id,
+          username: emp.username,
+          name: emp.name,
+          role: emp.role,
+          active: emp.active,
+          createdAt: emp.createdAt || new Date().toISOString(),
+          updatedAt: emp.updatedAt || new Date().toISOString(),
+        });
+        setLoginError('');
+      } else {
+        const data = await res.json();
+        setLoginError(data.error || 'اسم المستخدم أو كلمة المرور غير صحيحة');
+      }
+    } catch {
+      setLoginError('حدث خطأ في الاتصال');
+    } finally {
+      setLoginLoading(false);
     }
   };
 
@@ -289,6 +395,7 @@ export default function AdminPanel() {
 
   const handleLogout = () => {
     setAdmin(false);
+    setCurrentEmployee(null);
     setPage('shop');
   };
 
@@ -402,16 +509,103 @@ export default function AdminPanel() {
   const handleConfirmPayment = async (orderId: string) => {
     if (!confirm('هل تريد تأكيد استلام الدفع لهذا الطلب؟')) return;
     try {
+      const payload: Record<string, unknown> = { paymentStatus: 'paid' };
+      // Record which employee confirmed payment
+      if (currentEmployee && currentEmployee.id !== 'admin') {
+        payload.confirmedByEmployeeId = currentEmployee.id;
+      }
       const res = await fetch(`/api/orders/${orderId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paymentStatus: 'paid' }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error('Failed to confirm payment');
       fetchOrders();
       fetchTreasury();
     } catch (err) {
       console.error('Error confirming payment:', err);
+    }
+  };
+
+  // ─── Employee CRUD ───────────────────────────────────────────────────────
+
+  const openAddEmployee = () => {
+    setEditingEmployeeId(null);
+    setEmployeeForm(emptyEmployeeForm);
+    setEmployeeDialogOpen(true);
+  };
+
+  const openEditEmployee = (emp: Employee) => {
+    setEditingEmployeeId(emp.id);
+    setEmployeeForm({
+      name: emp.name,
+      username: emp.username,
+      password: '',
+      role: emp.role,
+    });
+    setEmployeeDialogOpen(true);
+  };
+
+  const handleSaveEmployee = async () => {
+    setSavingEmployee(true);
+    try {
+      if (editingEmployeeId) {
+        const payload: Record<string, unknown> = {
+          name: employeeForm.name,
+          role: employeeForm.role,
+        };
+        if (employeeForm.password && employeeForm.password.length >= 4) {
+          payload.password = employeeForm.password;
+        }
+        const res = await fetch(`/api/employees/${editingEmployeeId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error('Failed to update employee');
+      } else {
+        const res = await fetch('/api/employees', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(employeeForm),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || 'Failed to create employee');
+        }
+      }
+      setEmployeeDialogOpen(false);
+      fetchEmployees();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'حدث خطأ';
+      alert(msg);
+    } finally {
+      setSavingEmployee(false);
+    }
+  };
+
+  const handleDeleteEmployee = async (empId: string) => {
+    if (!confirm('هل أنت متأكد من حذف هذا الموظف؟')) return;
+    try {
+      const res = await fetch(`/api/employees/${empId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete employee');
+      fetchEmployees();
+    } catch (err) {
+      console.error('Error deleting employee:', err);
+    }
+  };
+
+  const handleToggleEmployeeActive = async (empId: string, active: boolean) => {
+    try {
+      const res = await fetch(`/api/employees/${empId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: !active }),
+      });
+      if (!res.ok) throw new Error('Failed to toggle employee status');
+      fetchEmployees();
+    } catch (err) {
+      console.error('Error toggling employee status:', err);
     }
   };
 
@@ -453,7 +647,6 @@ export default function AdminPanel() {
 
   const handleSyncFacebookShop = async () => {
     setSyncingFacebook(true);
-    // Simulate sync operation
     await new Promise((resolve) => setTimeout(resolve, 2000));
     setSyncingFacebook(false);
     alert('تمت مزامنة المنتجات مع فيسبوك شوب بنجاح');
@@ -510,8 +703,15 @@ export default function AdminPanel() {
               {loginError && (
                 <p className="text-sm text-red-600 text-center font-medium">{loginError}</p>
               )}
-              <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
-                تسجيل الدخول
+              <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white" disabled={loginLoading}>
+                {loginLoading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 ml-2 animate-spin" />
+                    جاري الدخول...
+                  </>
+                ) : (
+                  'تسجيل الدخول'
+                )}
               </Button>
             </form>
           </CardContent>
@@ -531,14 +731,24 @@ export default function AdminPanel() {
             <LayoutDashboard className="w-6 h-6" />
             <h1 className="text-lg sm:text-xl font-bold">لوحة إدارة المتجر</h1>
           </div>
-          <Button
-            variant="outline"
-            onClick={handleLogout}
-            className="border-emerald-500 text-emerald-100 hover:bg-emerald-600 hover:text-white bg-transparent"
-          >
-            <LogOut className="w-4 h-4 ml-2" />
-            تسجيل الخروج
-          </Button>
+          <div className="flex items-center gap-3">
+            {/* Current user badge */}
+            <div className="hidden sm:flex items-center gap-2 bg-emerald-600 rounded-lg px-3 py-1.5">
+              <UserCheck className="w-4 h-4" />
+              <span className="text-sm font-medium">{currentEmployee?.name || 'المدير العام'}</span>
+              <Badge className="bg-emerald-500 text-white border-0 text-[10px] px-1.5 py-0">
+                {ROLE_MAP[currentRole] || 'مدير'}
+              </Badge>
+            </div>
+            <Button
+              variant="outline"
+              onClick={handleLogout}
+              className="border-emerald-500 text-emerald-100 hover:bg-emerald-600 hover:text-white bg-transparent"
+            >
+              <LogOut className="w-4 h-4 ml-2" />
+              تسجيل الخروج
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -566,13 +776,15 @@ export default function AdminPanel() {
                 <LayoutDashboard className="w-4 h-4" />
                 <span className="hidden sm:inline">لوحة التحكم</span>
               </TabsTrigger>
-              <TabsTrigger
-                value="products"
-                className="flex items-center gap-1.5 data-[state=active]:bg-emerald-600 data-[state=active]:text-white px-3 py-2 rounded-lg text-sm"
-              >
-                <Package className="w-4 h-4" />
-                <span className="hidden sm:inline">المنتجات</span>
-              </TabsTrigger>
+              {canManageProducts(currentRole) && (
+                <TabsTrigger
+                  value="products"
+                  className="flex items-center gap-1.5 data-[state=active]:bg-emerald-600 data-[state=active]:text-white px-3 py-2 rounded-lg text-sm"
+                >
+                  <Package className="w-4 h-4" />
+                  <span className="hidden sm:inline">المنتجات</span>
+                </TabsTrigger>
+              )}
               <TabsTrigger
                 value="orders"
                 className="flex items-center gap-1.5 data-[state=active]:bg-emerald-600 data-[state=active]:text-white px-3 py-2 rounded-lg text-sm"
@@ -580,20 +792,15 @@ export default function AdminPanel() {
                 <ShoppingCart className="w-4 h-4" />
                 <span className="hidden sm:inline">الطلبات</span>
               </TabsTrigger>
-              <TabsTrigger
-                value="settings"
-                className="flex items-center gap-1.5 data-[state=active]:bg-emerald-600 data-[state=active]:text-white px-3 py-2 rounded-lg text-sm"
-              >
-                <Settings className="w-4 h-4" />
-                <span className="hidden sm:inline">الإعدادات</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="facebook"
-                className="flex items-center gap-1.5 data-[state=active]:bg-emerald-600 data-[state=active]:text-white px-3 py-2 rounded-lg text-sm"
-              >
-                <Facebook className="w-4 h-4" />
-                <span className="hidden sm:inline">فيسبوك</span>
-              </TabsTrigger>
+              {canManageEmployees(currentRole) && (
+                <TabsTrigger
+                  value="employees"
+                  className="flex items-center gap-1.5 data-[state=active]:bg-emerald-600 data-[state=active]:text-white px-3 py-2 rounded-lg text-sm"
+                >
+                  <Users className="w-4 h-4" />
+                  <span className="hidden sm:inline">الموظفون</span>
+                </TabsTrigger>
+              )}
               <TabsTrigger
                 value="treasury"
                 className="flex items-center gap-1.5 data-[state=active]:bg-emerald-600 data-[state=active]:text-white px-3 py-2 rounded-lg text-sm"
@@ -601,6 +808,24 @@ export default function AdminPanel() {
                 <Wallet className="w-4 h-4" />
                 <span className="hidden sm:inline">الخزينة</span>
               </TabsTrigger>
+              {canManageSettings(currentRole) && (
+                <TabsTrigger
+                  value="settings"
+                  className="flex items-center gap-1.5 data-[state=active]:bg-emerald-600 data-[state=active]:text-white px-3 py-2 rounded-lg text-sm"
+                >
+                  <Settings className="w-4 h-4" />
+                  <span className="hidden sm:inline">الإعدادات</span>
+                </TabsTrigger>
+              )}
+              {canManageFacebook(currentRole) && (
+                <TabsTrigger
+                  value="facebook"
+                  className="flex items-center gap-1.5 data-[state=active]:bg-emerald-600 data-[state=active]:text-white px-3 py-2 rounded-lg text-sm"
+                >
+                  <Facebook className="w-4 h-4" />
+                  <span className="hidden sm:inline">فيسبوك</span>
+                </TabsTrigger>
+              )}
             </TabsList>
 
             {/* ─── Dashboard Tab ────────────────────────────────────────── */}
@@ -657,6 +882,32 @@ export default function AdminPanel() {
                 </Card>
               </div>
 
+              {/* Current employee info card */}
+              {currentEmployee && currentEmployee.id !== 'admin' && (
+                <Card className="mt-6 border-blue-100 shadow-sm bg-gradient-to-r from-blue-50 to-indigo-50">
+                  <CardHeader>
+                    <CardTitle className="text-blue-800 flex items-center gap-2">
+                      <UserCheck className="w-5 h-5" />
+                      معلومات الموظف
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap items-center gap-4">
+                      <div>
+                        <span className="text-sm text-blue-600">الاسم:</span>
+                        <span className="font-bold text-blue-800 mr-2">{currentEmployee.name}</span>
+                      </div>
+                      <div>
+                        <span className="text-sm text-blue-600">الصلاحية:</span>
+                        <Badge className={ROLE_COLORS[currentRole] || ''}>
+                          {ROLE_MAP[currentRole] || 'مدير'}
+                        </Badge>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Recent Orders */}
               <Card className="mt-6 border-emerald-100 shadow-sm">
                 <CardHeader>
@@ -674,6 +925,9 @@ export default function AdminPanel() {
                             <TableHead className="text-right">العميل</TableHead>
                             <TableHead className="text-right">المبلغ</TableHead>
                             <TableHead className="text-right">الحالة</TableHead>
+                            {canManageEmployees(currentRole) && (
+                              <TableHead className="text-right hidden md:table-cell">الموظف</TableHead>
+                            )}
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -689,6 +943,11 @@ export default function AdminPanel() {
                                   {ORDER_STATUS_MAP[order.status] || order.status}
                                 </Badge>
                               </TableCell>
+                              {canManageEmployees(currentRole) && (
+                                <TableCell className="hidden md:table-cell text-sm text-gray-600">
+                                  {order.employee?.name || '—'}
+                                </TableCell>
+                              )}
                             </TableRow>
                           ))}
                         </TableBody>
@@ -700,97 +959,101 @@ export default function AdminPanel() {
             </TabsContent>
 
             {/* ─── Products Tab ─────────────────────────────────────────── */}
-            <TabsContent value="products">
-              <Card className="border-emerald-100 shadow-sm">
-                <CardHeader>
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <CardTitle className="text-emerald-800">إدارة المنتجات</CardTitle>
-                    <Button
-                      onClick={openAddProduct}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                    >
-                      <Plus className="w-4 h-4 ml-2" />
-                      إضافة منتج
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {products.length === 0 ? (
-                    <p className="text-center text-gray-500 py-8">لا توجد منتجات بعد</p>
-                  ) : (
-                    <div className="max-h-[500px] overflow-y-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="text-right">الاسم</TableHead>
-                            <TableHead className="text-right hidden md:table-cell">السعر</TableHead>
-                            <TableHead className="text-right hidden sm:table-cell">المخزون</TableHead>
-                            <TableHead className="text-right hidden lg:table-cell">الفئة</TableHead>
-                            <TableHead className="text-right">الحالة</TableHead>
-                            <TableHead className="text-right">إجراءات</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {products.map((product) => (
-                            <TableRow key={product.id}>
-                              <TableCell className="font-medium max-w-[150px] truncate">
-                                {product.nameAr || product.name}
-                              </TableCell>
-                              <TableCell className="hidden md:table-cell">
-                                {product.price.toLocaleString('ar-TN')} د.ت
-                              </TableCell>
-                              <TableCell className="hidden sm:table-cell">
-                                <Badge
-                                  variant={product.stock > 0 ? 'secondary' : 'destructive'}
-                                >
-                                  {product.stock}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="hidden lg:table-cell">
-                                {product.category?.nameAr || product.category?.name || '—'}
-                              </TableCell>
-                              <TableCell>
-                                {product.active ? (
-                                  <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
-                                    نشط
-                                  </Badge>
-                                ) : (
-                                  <Badge variant="outline" className="text-gray-500">
-                                    غير نشط
-                                  </Badge>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-1">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => openEditProduct(product)}
-                                    className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800 gap-1"
-                                  >
-                                    <Pencil className="w-3.5 h-3.5" />
-                                    <span className="hidden sm:inline text-xs">تعديل</span>
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleDeleteProduct(product.id)}
-                                    className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-700 gap-1"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                    <span className="hidden sm:inline text-xs">حذف</span>
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+            {canManageProducts(currentRole) && (
+              <TabsContent value="products">
+                <Card className="border-emerald-100 shadow-sm">
+                  <CardHeader>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <CardTitle className="text-emerald-800">إدارة المنتجات</CardTitle>
+                      {canManageProducts(currentRole) && (
+                        <Button
+                          onClick={openAddProduct}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                        >
+                          <Plus className="w-4 h-4 ml-2" />
+                          إضافة منتج
+                        </Button>
+                      )}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
+                  </CardHeader>
+                  <CardContent>
+                    {products.length === 0 ? (
+                      <p className="text-center text-gray-500 py-8">لا توجد منتجات بعد</p>
+                    ) : (
+                      <div className="max-h-[500px] overflow-y-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-right">الاسم</TableHead>
+                              <TableHead className="text-right hidden md:table-cell">السعر</TableHead>
+                              <TableHead className="text-right hidden sm:table-cell">المخزون</TableHead>
+                              <TableHead className="text-right hidden lg:table-cell">الفئة</TableHead>
+                              <TableHead className="text-right">الحالة</TableHead>
+                              <TableHead className="text-right">إجراءات</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {products.map((product) => (
+                              <TableRow key={product.id}>
+                                <TableCell className="font-medium max-w-[150px] truncate">
+                                  {product.nameAr || product.name}
+                                </TableCell>
+                                <TableCell className="hidden md:table-cell">
+                                  {product.price.toLocaleString('ar-TN')} د.ت
+                                </TableCell>
+                                <TableCell className="hidden sm:table-cell">
+                                  <Badge
+                                    variant={product.stock > 0 ? 'secondary' : 'destructive'}
+                                  >
+                                    {product.stock}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="hidden lg:table-cell">
+                                  {product.category?.nameAr || product.category?.name || '—'}
+                                </TableCell>
+                                <TableCell>
+                                  {product.active ? (
+                                    <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
+                                      نشط
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-gray-500">
+                                      غير نشط
+                                    </Badge>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => openEditProduct(product)}
+                                      className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800 gap-1"
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                      <span className="hidden sm:inline text-xs">تعديل</span>
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleDeleteProduct(product.id)}
+                                      className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-700 gap-1"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                      <span className="hidden sm:inline text-xs">حذف</span>
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
 
             {/* ─── Orders Tab ───────────────────────────────────────────── */}
             <TabsContent value="orders">
@@ -811,6 +1074,9 @@ export default function AdminPanel() {
                             <TableHead className="text-right">المبلغ</TableHead>
                             <TableHead className="text-right">الحالة</TableHead>
                             <TableHead className="text-right">الدفع</TableHead>
+                            {canManageEmployees(currentRole) && (
+                              <TableHead className="text-right hidden lg:table-cell">الموظف</TableHead>
+                            )}
                             <TableHead className="text-right hidden md:table-cell">التاريخ</TableHead>
                             <TableHead className="text-right">إجراءات</TableHead>
                           </TableRow>
@@ -852,7 +1118,7 @@ export default function AdminPanel() {
                                     <CheckCircle2 className="w-3 h-3" />
                                     مدفوع
                                   </Badge>
-                                ) : (
+                                ) : canConfirmPayment(currentRole) ? (
                                   <Button
                                     size="sm"
                                     onClick={() => handleConfirmPayment(order.id)}
@@ -861,8 +1127,17 @@ export default function AdminPanel() {
                                     <CircleDollarSign className="w-3.5 h-3.5" />
                                     تأكيد الدفع
                                   </Button>
+                                ) : (
+                                  <Badge variant="outline" className="text-amber-600">
+                                    غير مدفوع
+                                  </Badge>
                                 )}
                               </TableCell>
+                              {canManageEmployees(currentRole) && (
+                                <TableCell className="hidden lg:table-cell text-sm text-gray-600">
+                                  {order.employee?.name || '—'}
+                                </TableCell>
+                              )}
                               <TableCell className="hidden md:table-cell text-sm text-gray-600">
                                 {new Date(order.createdAt).toLocaleDateString('ar-TN')}
                               </TableCell>
@@ -880,15 +1155,17 @@ export default function AdminPanel() {
                                     <Eye className="w-3.5 h-3.5" />
                                     <span className="hidden sm:inline text-xs">عرض</span>
                                   </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleDeleteOrder(order.id)}
-                                    className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-700 gap-1"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                    <span className="hidden sm:inline text-xs">حذف</span>
-                                  </Button>
+                                  {canManageEmployees(currentRole) && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleDeleteOrder(order.id)}
+                                      className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-700 gap-1"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                      <span className="hidden sm:inline text-xs">حذف</span>
+                                    </Button>
+                                  )}
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -901,229 +1178,166 @@ export default function AdminPanel() {
               </Card>
             </TabsContent>
 
-            {/* ─── Settings Tab ─────────────────────────────────────────── */}
-            <TabsContent value="settings">
-              <Card className="border-emerald-100 shadow-sm">
-                <CardHeader>
-                  <CardTitle className="text-emerald-800">إعدادات المتجر</CardTitle>
-                  <CardDescription>تعديل الإعدادات العامة للمتجر</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="storeName">اسم المتجر</Label>
-                      <Input
-                        id="storeName"
-                        value={settings.storeName}
-                        onChange={(e) =>
-                          setSettings({ ...settings, storeName: e.target.value })
-                        }
-                        className="text-right"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="storeDescription">وصف المتجر</Label>
-                      <Textarea
-                        id="storeDescription"
-                        value={settings.storeDescription}
-                        onChange={(e) =>
-                          setSettings({ ...settings, storeDescription: e.target.value })
-                        }
-                        className="text-right min-h-[80px]"
-                        rows={2}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="whatsappNumber">رقم واتساب</Label>
-                      <Input
-                        id="whatsappNumber"
-                        value={settings.whatsappNumber}
-                        onChange={(e) =>
-                          setSettings({ ...settings, whatsappNumber: e.target.value })
-                        }
-                        className="text-right"
-                        dir="ltr"
-                        placeholder="+966XXXXXXXXX"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="shippingFee">رسوم الشحن (د.ت)</Label>
-                      <Input
-                        id="shippingFee"
-                        type="number"
-                        value={settings.shippingFee}
-                        onChange={(e) =>
-                          setSettings({ ...settings, shippingFee: e.target.value })
-                        }
-                        className="text-right"
-                        dir="ltr"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="freeShippingThreshold">حد الشحن المجاني (د.ت)</Label>
-                      <Input
-                        id="freeShippingThreshold"
-                        type="number"
-                        value={settings.freeShippingThreshold}
-                        onChange={(e) =>
-                          setSettings({
-                            ...settings,
-                            freeShippingThreshold: e.target.value,
-                          })
-                        }
-                        className="text-right"
-                        dir="ltr"
-                        placeholder="اتركه فارغاً لتعطيل"
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-6">
-                    <Button
-                      onClick={handleSaveSettings}
-                      disabled={savingSettings}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                    >
-                      {savingSettings ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 ml-2 animate-spin" />
-                          جاري الحفظ...
-                        </>
-                      ) : (
-                        'حفظ الإعدادات'
-                      )}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* ─── Facebook Tab ─────────────────────────────────────────── */}
-            <TabsContent value="facebook">
-              <div className="space-y-6">
-                {/* Pixel Status */}
-                <Card className="border-emerald-100 shadow-sm">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-emerald-800 flex items-center gap-2">
-                        <Facebook className="w-5 h-5" />
-                        تكامل فيسبوك
-                      </CardTitle>
-                      <div className="flex items-center gap-2">
-                        {pixelActive ? (
-                          <>
-                            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                            <span className="text-sm font-medium text-emerald-600">البكسل نشط</span>
-                          </>
-                        ) : (
-                          <>
-                            <XCircle className="w-5 h-5 text-red-400" />
-                            <span className="text-sm font-medium text-red-500">البكسل غير نشط</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {/* Pixel ID */}
-                    <div className="space-y-2">
-                      <Label htmlFor="fbPixelId">معرف Facebook Pixel</Label>
-                      <div className="flex gap-3">
-                        <Input
-                          id="fbPixelId"
-                          value={settings.facebookPixelId}
-                          onChange={(e) =>
-                            setSettings({ ...settings, facebookPixelId: e.target.value })
-                          }
-                          placeholder="مثال: 1234567890"
-                          className="flex-1"
-                          dir="ltr"
-                        />
+            {/* ─── Employees Tab ────────────────────────────────────────── */}
+            {canManageEmployees(currentRole) && (
+              <TabsContent value="employees">
+                <div className="space-y-6">
+                  {/* Employee Management */}
+                  <Card className="border-emerald-100 shadow-sm">
+                    <CardHeader>
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <CardTitle className="text-emerald-800 flex items-center gap-2">
+                          <Users className="w-5 h-5" />
+                          إدارة الموظفين
+                        </CardTitle>
                         <Button
-                          onClick={handleActivatePixel}
-                          disabled={!settings.facebookPixelId || pixelActive}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white whitespace-nowrap"
+                          onClick={openAddEmployee}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white"
                         >
-                          تفعيل
+                          <UserPlus className="w-4 h-4 ml-2" />
+                          إضافة موظف
                         </Button>
                       </div>
-                    </div>
+                    </CardHeader>
+                    <CardContent>
+                      {employees.length === 0 ? (
+                        <div className="text-center py-12">
+                          <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                          <p className="text-gray-500">لا يوجد موظفون بعد</p>
+                          <p className="text-gray-400 text-sm mt-1">أضف موظفين لتتبع مبيعاتهم وإدارة صلاحياتهم</p>
+                        </div>
+                      ) : (
+                        <div className="max-h-[400px] overflow-y-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="text-right">الاسم</TableHead>
+                                <TableHead className="text-right">اسم المستخدم</TableHead>
+                                <TableHead className="text-right">الصلاحية</TableHead>
+                                <TableHead className="text-right hidden sm:table-cell">الطلبات</TableHead>
+                                <TableHead className="text-right">الحالة</TableHead>
+                                <TableHead className="text-right">إجراءات</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {employees.map((emp) => (
+                                <TableRow key={emp.id}>
+                                  <TableCell className="font-medium">{emp.name}</TableCell>
+                                  <TableCell className="text-gray-500 font-mono text-sm">{emp.username}</TableCell>
+                                  <TableCell>
+                                    <Badge className={ROLE_COLORS[emp.role] || ''}>
+                                      {ROLE_MAP[emp.role] || emp.role}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="hidden sm:table-cell">
+                                    <span className="text-sm text-gray-600">{emp.ordersCount || 0}</span>
+                                  </TableCell>
+                                  <TableCell>
+                                    {emp.active ? (
+                                      <Badge className="bg-green-100 text-green-700 border-green-200">نشط</Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="text-gray-500">معطل</Badge>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-1">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => openEditEmployee(emp)}
+                                        className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 gap-1"
+                                      >
+                                        <Pencil className="w-3.5 h-3.5" />
+                                        <span className="hidden sm:inline text-xs">تعديل</span>
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleToggleEmployeeActive(emp.id, emp.active)}
+                                        className={`gap-1 ${emp.active ? 'text-amber-500 border-amber-200 hover:bg-amber-50' : 'text-green-500 border-green-200 hover:bg-green-50'}`}
+                                      >
+                                        {emp.active ? (
+                                          <>
+                                            <XCircle className="w-3.5 h-3.5" />
+                                            <span className="hidden sm:inline text-xs">تعطيل</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <CheckCircle2 className="w-3.5 h-3.5" />
+                                            <span className="hidden sm:inline text-xs">تفعيل</span>
+                                          </>
+                                        )}
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleDeleteEmployee(emp.id)}
+                                        className="text-red-500 border-red-200 hover:bg-red-50 gap-1"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
 
-                    {/* Facebook Page URL */}
-                    <div className="space-y-2">
-                      <Label htmlFor="fbPageUrl">رابط صفحة فيسبوك</Label>
-                      <Input
-                        id="fbPageUrl"
-                        value={settings.facebookPageUrl}
-                        onChange={(e) =>
-                          setSettings({ ...settings, facebookPageUrl: e.target.value })
-                        }
-                        placeholder="https://facebook.com/your-page"
-                        dir="ltr"
-                      />
-                    </div>
-
-                    {/* Sync with Facebook Shop */}
-                    <div className="pt-2">
-                      <Button
-                        onClick={handleSyncFacebookShop}
-                        disabled={syncingFacebook}
-                        variant="outline"
-                        className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                      >
-                        {syncingFacebook ? (
-                          <>
-                            <RefreshCw className="w-4 h-4 ml-2 animate-spin" />
-                            جاري المزامنة...
-                          </>
-                        ) : (
-                          <>
-                            <RefreshCw className="w-4 h-4 ml-2" />
-                            مزامنة مع فيسبوك شوب
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Instructions */}
-                <Card className="border-blue-100 shadow-sm bg-blue-50/50">
-                  <CardHeader>
-                    <CardTitle className="text-blue-800 text-lg">
-                      كيفية ربط المتجر بفيسبوك شوب
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ol className="space-y-3 text-sm text-blue-900 list-decimal list-inside">
-                      <li>
-                        انتقل إلى{' '}
-                        <span className="font-mono bg-blue-100 px-1.5 py-0.5 rounded text-xs" dir="ltr">
-                          business.facebook.com
-                        </span>{' '}
-                        وقم بتسجيل الدخول بحسابك
-                      </li>
-                      <li>أنشئ كتالوج منتجات جديد من قسم "Commerce"</li>
-                      <li>أضف معرف البكسل الخاص بك في الحقل أعلاه واضغط "تفعيل"</li>
-                      <li>اربط صفحة فيسبوك الخاصة بك بإدخال الرابط أعلاه</li>
-                      <li>
-                        اضغط على زر{' '}
-                        <span className="font-semibold">"مزامنة مع فيسبوك شوب"</span>{' '}
-                        لنقل منتجاتك إلى الكتالوج
-                      </li>
-                      <li>راجع المنتجات في مدير Commerce وفعّلها للعرض</li>
-                      <li>اضبط إعدادات الدفع والشحن في لوحة تحكم Commerce</li>
-                    </ol>
-                    <div className="mt-4 p-3 bg-blue-100 rounded-lg">
-                      <p className="text-xs text-blue-800">
-                        <strong>ملاحظة:</strong> يجب أن يكون لديك صفحة فيسبوك تجارية وحساب
-                        Business Manager لاستخدام فيسبوك شوب. تأكد من أن منتجاتك تتوافق مع
-                        سياسات فيسبوك التجارية.
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
+                  {/* Role Descriptions */}
+                  <Card className="border-blue-100 shadow-sm bg-blue-50/50">
+                    <CardHeader>
+                      <CardTitle className="text-blue-800 flex items-center gap-2">
+                        <Shield className="w-5 h-5" />
+                        شرح الصلاحيات
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="p-4 bg-white rounded-lg border border-purple-100">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge className={ROLE_COLORS.admin}>مدير</Badge>
+                          </div>
+                          <ul className="text-sm text-gray-600 space-y-1">
+                            <li>- جميع الصلاحيات</li>
+                            <li>- إدارة الموظفين</li>
+                            <li>- إضافة/تعديل/حذف المنتجات</li>
+                            <li>- تأكيد الدفع وإدارة الطلبات</li>
+                            <li>- الإعدادات وفيسبوك</li>
+                          </ul>
+                        </div>
+                        <div className="p-4 bg-white rounded-lg border border-emerald-100">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge className={ROLE_COLORS.seller_plus}>بائع + إضافة منتجات</Badge>
+                          </div>
+                          <ul className="text-sm text-gray-600 space-y-1">
+                            <li>- إضافة/تعديل/حذف المنتجات</li>
+                            <li>- تأكيد الدفع وإدارة الطلبات</li>
+                            <li>- عرض الخزينة</li>
+                            <li>- لا يمكنه إدارة الموظفين</li>
+                          </ul>
+                        </div>
+                        <div className="p-4 bg-white rounded-lg border border-blue-100">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge className={ROLE_COLORS.seller}>بائع</Badge>
+                          </div>
+                          <ul className="text-sm text-gray-600 space-y-1">
+                            <li>- تأكيد الدفع فقط</li>
+                            <li>- عرض الطلبات وتغيير حالتها</li>
+                            <li>- عرض الخزينة</li>
+                            <li>- لا يمكنه إضافة منتجات</li>
+                            <li>- لا يمكنه إدارة الموظفين</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+            )}
 
             {/* ─── Treasury Tab ─────────────────────────────────────────── */}
             <TabsContent value="treasury">
@@ -1196,6 +1410,57 @@ export default function AdminPanel() {
                     </Card>
                   </div>
 
+                  {/* Employee Sales Today */}
+                  {canManageEmployees(currentRole) && treasury.employeeSalesToday && treasury.employeeSalesToday.length > 0 && (
+                    <Card className="border-indigo-100 shadow-sm">
+                      <CardHeader>
+                        <CardTitle className="text-indigo-800 flex items-center gap-2">
+                          <UserCog className="w-5 h-5" />
+                          مبيعات الموظفين اليوم
+                        </CardTitle>
+                        <CardDescription>
+                          تتبع مبيعات كل موظف خلال اليوم الحالي
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="max-h-[300px] overflow-y-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="text-right">الموظف</TableHead>
+                                <TableHead className="text-right">الصلاحية</TableHead>
+                                <TableHead className="text-right">طلبات أنشأها</TableHead>
+                                <TableHead className="text-right">إجمالي إنشاء</TableHead>
+                                <TableHead className="text-right">دفعات أكدها</TableHead>
+                                <TableHead className="text-right">إجمالي تأكيد الدفع</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {treasury.employeeSalesToday.map((emp) => (
+                                <TableRow key={emp.id}>
+                                  <TableCell className="font-medium">{emp.name}</TableCell>
+                                  <TableCell>
+                                    <Badge className={ROLE_COLORS[emp.role] || ''}>
+                                      {ROLE_MAP[emp.role] || emp.role}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>{emp.createdToday}</TableCell>
+                                  <TableCell className="font-medium">
+                                    {emp.createdTodayTotal.toLocaleString('ar-TN', { minimumFractionDigits: 3 })} د.ت
+                                  </TableCell>
+                                  <TableCell>{emp.confirmedToday}</TableCell>
+                                  <TableCell className="font-medium text-green-700">
+                                    {emp.confirmedTodayTotal.toLocaleString('ar-TN', { minimumFractionDigits: 3 })} د.ت
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
                   {/* Daily Breakdown */}
                   <Card className="border-emerald-100 shadow-sm">
                     <CardHeader>
@@ -1245,6 +1510,9 @@ export default function AdminPanel() {
                                       <TableHead className="text-right text-xs">المبلغ</TableHead>
                                       <TableHead className="text-right text-xs">طريقة الدفع</TableHead>
                                       <TableHead className="text-right text-xs">وقت الدفع</TableHead>
+                                      {canManageEmployees(currentRole) && (
+                                        <TableHead className="text-right text-xs">أكد الدفع</TableHead>
+                                      )}
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
@@ -1257,6 +1525,11 @@ export default function AdminPanel() {
                                         <TableCell className="text-xs text-gray-500">
                                           {o.paidAt ? new Date(o.paidAt).toLocaleTimeString('ar-TN', { hour: '2-digit', minute: '2-digit' }) : '—'}
                                         </TableCell>
+                                        {canManageEmployees(currentRole) && (
+                                          <TableCell className="text-xs text-gray-500">
+                                            {o.confirmedByName || '—'}
+                                          </TableCell>
+                                        )}
                                       </TableRow>
                                     ))}
                                   </TableBody>
@@ -1280,6 +1553,213 @@ export default function AdminPanel() {
                 </div>
               )}
             </TabsContent>
+
+            {/* ─── Settings Tab ─────────────────────────────────────────── */}
+            {canManageSettings(currentRole) && (
+              <TabsContent value="settings">
+                <Card className="border-emerald-100 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-emerald-800">إعدادات المتجر</CardTitle>
+                    <CardDescription>تعديل الإعدادات العامة للمتجر</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="storeName">اسم المتجر</Label>
+                        <Input
+                          id="storeName"
+                          value={settings.storeName}
+                          onChange={(e) =>
+                            setSettings({ ...settings, storeName: e.target.value })
+                          }
+                          className="text-right"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="storeDescription">وصف المتجر</Label>
+                        <Textarea
+                          id="storeDescription"
+                          value={settings.storeDescription}
+                          onChange={(e) =>
+                            setSettings({ ...settings, storeDescription: e.target.value })
+                          }
+                          className="text-right min-h-[80px]"
+                          rows={2}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="whatsappNumber">رقم واتساب</Label>
+                        <Input
+                          id="whatsappNumber"
+                          value={settings.whatsappNumber}
+                          onChange={(e) =>
+                            setSettings({ ...settings, whatsappNumber: e.target.value })
+                          }
+                          className="text-right"
+                          dir="ltr"
+                          placeholder="+216XXXXXXXX"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="shippingFee">رسوم الشحن (د.ت)</Label>
+                        <Input
+                          id="shippingFee"
+                          type="number"
+                          value={settings.shippingFee}
+                          onChange={(e) =>
+                            setSettings({ ...settings, shippingFee: e.target.value })
+                          }
+                          className="text-right"
+                          dir="ltr"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="freeShippingThreshold">حد الشحن المجاني (د.ت)</Label>
+                        <Input
+                          id="freeShippingThreshold"
+                          type="number"
+                          value={settings.freeShippingThreshold}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              freeShippingThreshold: e.target.value,
+                            })
+                          }
+                          className="text-right"
+                          dir="ltr"
+                          placeholder="اتركه فارغاً لتعطيل"
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-6">
+                      <Button
+                        onClick={handleSaveSettings}
+                        disabled={savingSettings}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                      >
+                        {savingSettings ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 ml-2 animate-spin" />
+                            جاري الحفظ...
+                          </>
+                        ) : (
+                          'حفظ الإعدادات'
+                        )}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
+
+            {/* ─── Facebook Tab ─────────────────────────────────────────── */}
+            {canManageFacebook(currentRole) && (
+              <TabsContent value="facebook">
+                <div className="space-y-6">
+                  <Card className="border-emerald-100 shadow-sm">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-emerald-800 flex items-center gap-2">
+                          <Facebook className="w-5 h-5" />
+                          تكامل فيسبوك
+                        </CardTitle>
+                        <div className="flex items-center gap-2">
+                          {pixelActive ? (
+                            <>
+                              <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                              <span className="text-sm font-medium text-emerald-600">البكسل نشط</span>
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="w-5 h-5 text-red-400" />
+                              <span className="text-sm font-medium text-red-500">البكسل غير نشط</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="fbPixelId">معرف Facebook Pixel</Label>
+                        <div className="flex gap-3">
+                          <Input
+                            id="fbPixelId"
+                            value={settings.facebookPixelId}
+                            onChange={(e) =>
+                              setSettings({ ...settings, facebookPixelId: e.target.value })
+                            }
+                            placeholder="مثال: 1234567890"
+                            className="flex-1"
+                            dir="ltr"
+                          />
+                          <Button
+                            onClick={handleActivatePixel}
+                            disabled={!settings.facebookPixelId || pixelActive}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white whitespace-nowrap"
+                          >
+                            تفعيل
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="fbPageUrl">رابط صفحة فيسبوك</Label>
+                        <Input
+                          id="fbPageUrl"
+                          value={settings.facebookPageUrl}
+                          onChange={(e) =>
+                            setSettings({ ...settings, facebookPageUrl: e.target.value })
+                          }
+                          placeholder="https://facebook.com/your-page"
+                          dir="ltr"
+                        />
+                      </div>
+                      <div className="pt-2">
+                        <Button
+                          onClick={handleSyncFacebookShop}
+                          disabled={syncingFacebook}
+                          variant="outline"
+                          className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                        >
+                          {syncingFacebook ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 ml-2 animate-spin" />
+                              جاري المزامنة...
+                            </>
+                          ) : (
+                            <>
+                              <RefreshCw className="w-4 h-4 ml-2" />
+                              مزامنة مع فيسبوك شوب
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-blue-100 shadow-sm bg-blue-50/50">
+                    <CardHeader>
+                      <CardTitle className="text-blue-800 text-lg">
+                        كيفية ربط المتجر بفيسبوك شوب
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ol className="space-y-3 text-sm text-blue-900 list-decimal list-inside">
+                        <li>
+                          انتقل إلى{' '}
+                          <span className="font-mono bg-blue-100 px-1.5 py-0.5 rounded text-xs" dir="ltr">
+                            business.facebook.com
+                          </span>{' '}
+                          وقم بتسجيل الدخول بحسابك
+                        </li>
+                        <li>أنشئ كتالوج منتجات جديد من قسم Commerce</li>
+                        <li>أضف معرف البكسل الخاص بك في الحقل أعلاه واضغط تفعيل</li>
+                        <li>اربط صفحة فيسبوك الخاصة بك بإدخال الرابط أعلاه</li>
+                        <li>اضغط على زر مزامنة مع فيسبوك شوب لنقل منتجاتك</li>
+                      </ol>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+            )}
           </Tabs>
         )}
       </main>
@@ -1452,48 +1932,169 @@ export default function AdminPanel() {
         </DialogContent>
       </Dialog>
 
+      {/* ─── Employee Form Dialog ──────────────────────────────────────────── */}
+      <Dialog open={employeeDialogOpen} onOpenChange={setEmployeeDialogOpen}>
+        <DialogContent className="max-w-md" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-emerald-800">
+              {editingEmployeeId ? 'تعديل الموظف' : 'إضافة موظف جديد'}
+            </DialogTitle>
+            <DialogDescription>
+              {editingEmployeeId
+                ? 'قم بتعديل بيانات الموظف'
+                : 'أدخل بيانات الموظف الجديد'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="emp-name">اسم الموظف</Label>
+              <Input
+                id="emp-name"
+                value={employeeForm.name}
+                onChange={(e) =>
+                  setEmployeeForm({ ...employeeForm, name: e.target.value })
+                }
+                placeholder="الاسم الكامل"
+                className="text-right"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="emp-username">اسم المستخدم</Label>
+              <Input
+                id="emp-username"
+                value={employeeForm.username}
+                onChange={(e) =>
+                  setEmployeeForm({ ...employeeForm, username: e.target.value })
+                }
+                placeholder="اسم المستخدم للدخول"
+                dir="ltr"
+                disabled={!!editingEmployeeId}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="emp-password">
+                {editingEmployeeId ? 'كلمة المرور الجديدة (اتركها فارغة لعدم التغيير)' : 'كلمة المرور'}
+              </Label>
+              <Input
+                id="emp-password"
+                type="password"
+                value={employeeForm.password}
+                onChange={(e) =>
+                  setEmployeeForm({ ...employeeForm, password: e.target.value })
+                }
+                placeholder={editingEmployeeId ? 'اتركها فارغة لعدم التغيير' : 'كلمة المرور (4 أحرف على الأقل)'}
+                dir="ltr"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="emp-role">الصلاحية</Label>
+              <Select
+                value={employeeForm.role}
+                onValueChange={(value) =>
+                  setEmployeeForm({ ...employeeForm, role: value })
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="اختر الصلاحية" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="seller">بائع فقط (تأكيد الدفع وإدارة الطلبات)</SelectItem>
+                  <SelectItem value="seller_plus">بائع + إضافة منتجات</SelectItem>
+                  <SelectItem value="admin">مدير (جميع الصلاحيات)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEmployeeDialogOpen(false)}
+            >
+              إلغاء
+            </Button>
+            <Button
+              onClick={handleSaveEmployee}
+              disabled={savingEmployee || !employeeForm.name || (!editingEmployeeId && (!employeeForm.username || !employeeForm.password))}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {savingEmployee ? (
+                <>
+                  <RefreshCw className="w-4 h-4 ml-2 animate-spin" />
+                  جاري الحفظ...
+                </>
+              ) : editingEmployeeId ? (
+                'تحديث الموظف'
+              ) : (
+                'إضافة الموظف'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ─── Order Detail Dialog ────────────────────────────────────────────── */}
       <Dialog open={orderDetailDialogOpen} onOpenChange={setOrderDetailDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
           <DialogHeader>
             <DialogTitle className="text-emerald-800">تفاصيل الطلب</DialogTitle>
             <DialogDescription>
-              {selectedOrder?.orderNumber}
+              الطلب رقم {selectedOrder?.orderNumber}
             </DialogDescription>
           </DialogHeader>
 
           {selectedOrder && (
             <div className="space-y-4 py-4">
-              {/* Customer Info */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-semibold text-emerald-700 mb-2">معلومات العميل</h4>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <p>
-                    <span className="text-gray-500">الاسم:</span>{' '}
-                    {selectedOrder.customer?.name}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-500">العميل</p>
+                  <p className="font-medium">{selectedOrder.customer?.name || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">الهاتف</p>
+                  <p className="font-medium" dir="ltr">{selectedOrder.customer?.phone || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">المدينة</p>
+                  <p className="font-medium">{selectedOrder.customer?.city || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">المبلغ الإجمالي</p>
+                  <p className="font-bold text-emerald-700">
+                    {selectedOrder.total.toLocaleString('ar-TN')} د.ت
                   </p>
-                  <p>
-                    <span className="text-gray-500">الهاتف:</span>{' '}
-                    <span dir="ltr">{selectedOrder.customer?.phone}</span>
-                  </p>
-                  {selectedOrder.customer?.email && (
-                    <p>
-                      <span className="text-gray-500">البريد:</span>{' '}
-                      <span dir="ltr">{selectedOrder.customer.email}</span>
-                    </p>
-                  )}
-                  {selectedOrder.customer?.address && (
-                    <p>
-                      <span className="text-gray-500">العنوان:</span>{' '}
-                      {selectedOrder.customer.address}
-                    </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">حالة الطلب</p>
+                  <Badge variant={ORDER_STATUS_COLORS[selectedOrder.status] || 'outline'}>
+                    {ORDER_STATUS_MAP[selectedOrder.status] || selectedOrder.status}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">حالة الدفع</p>
+                  {selectedOrder.paymentStatus === 'paid' ? (
+                    <Badge className="bg-green-100 text-green-700 border-green-200">مدفوع</Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-amber-600">غير مدفوع</Badge>
                   )}
                 </div>
+                {canManageEmployees(currentRole) && selectedOrder.employee && (
+                  <div>
+                    <p className="text-sm text-gray-500">أنشأه الموظف</p>
+                    <p className="font-medium">{selectedOrder.employee.name}</p>
+                  </div>
+                )}
+                {canManageEmployees(currentRole) && selectedOrder.confirmedByEmployee && (
+                  <div>
+                    <p className="text-sm text-gray-500">أكد الدفع</p>
+                    <p className="font-medium">{selectedOrder.confirmedByEmployee.name}</p>
+                  </div>
+                )}
               </div>
 
-              {/* Order Items */}
-              <div>
-                <h4 className="font-semibold text-emerald-700 mb-2">المنتجات</h4>
+              <div className="border-t pt-4">
+                <h4 className="font-semibold mb-2">المنتجات</h4>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1507,49 +2108,18 @@ export default function AdminPanel() {
                     {selectedOrder.items.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell>
-                          {item.product?.nameAr || item.product?.name || 'منتج محذوف'}
+                          {item.product?.nameAr || item.product?.name || '—'}
                         </TableCell>
                         <TableCell>{item.quantity}</TableCell>
                         <TableCell>{item.price.toLocaleString('ar-TN')} د.ت</TableCell>
-                        <TableCell>{item.total.toLocaleString('ar-TN')} د.ت</TableCell>
+                        <TableCell className="font-medium">
+                          {item.total.toLocaleString('ar-TN')} د.ت
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
-
-              {/* Totals */}
-              <div className="bg-emerald-50 rounded-lg p-4 space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">المجموع الفرعي:</span>
-                  <span>{selectedOrder.subtotal.toLocaleString('ar-TN')} د.ت</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">الشحن:</span>
-                  <span>{selectedOrder.shipping.toLocaleString('ar-TN')} د.ت</span>
-                </div>
-                <div className="flex justify-between font-bold text-emerald-800 pt-1 border-t border-emerald-200">
-                  <span>الإجمالي:</span>
-                  <span>{selectedOrder.total.toLocaleString('ar-TN')} د.ت</span>
-                </div>
-              </div>
-
-              {/* Status */}
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-gray-600">حالة الطلب:</span>
-                <Badge variant={ORDER_STATUS_COLORS[selectedOrder.status] || 'outline'}>
-                  {ORDER_STATUS_MAP[selectedOrder.status] || selectedOrder.status}
-                </Badge>
-              </div>
-
-              {selectedOrder.notes && (
-                <div className="bg-yellow-50 rounded-lg p-3">
-                  <p className="text-sm">
-                    <span className="text-yellow-700 font-medium">ملاحظات:</span>{' '}
-                    {selectedOrder.notes}
-                  </p>
-                </div>
-              )}
             </div>
           )}
         </DialogContent>

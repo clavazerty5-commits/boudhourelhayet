@@ -13,6 +13,8 @@ export async function GET(
       where: { id },
       include: {
         customer: true,
+        employee: true,
+        confirmedByEmployee: true,
         items: {
           include: {
             product: true,
@@ -58,7 +60,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { status, paymentMethod, paymentStatus, notes, shipping, facebookLeadId } = body;
+    const { status, paymentMethod, paymentStatus, notes, shipping, facebookLeadId, confirmedByEmployeeId } = body;
 
     const existingOrder = await db.order.findUnique({
       where: { id },
@@ -100,8 +102,13 @@ export async function PUT(
       updateData.paymentStatus = paymentStatus;
       if (paymentStatus === 'paid' && existingOrder.paymentStatus !== 'paid') {
         updateData.paidAt = new Date();
+        // Record which employee confirmed the payment
+        if (confirmedByEmployeeId) {
+          updateData.confirmedByEmployeeId = confirmedByEmployeeId;
+        }
       } else if (paymentStatus === 'unpaid') {
         updateData.paidAt = null;
+        updateData.confirmedByEmployeeId = null;
       }
     }
 
@@ -144,6 +151,8 @@ export async function PUT(
       where: { id },
       include: {
         customer: true,
+        employee: true,
+        confirmedByEmployee: true,
         items: {
           include: {
             product: true,

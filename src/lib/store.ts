@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { CartItem, PageName } from '@/types';
+import type { CartItem, PageName, Employee } from '@/types';
 
 interface StoreState {
   // Cart state
@@ -28,6 +28,12 @@ interface StoreState {
   setAdmin: (isAdmin: boolean) => void;
   adminTab: string;
   setAdminTab: (tab: string) => void;
+
+  // Employee state
+  currentEmployee: Employee | null;
+  setCurrentEmployee: (employee: Employee | null) => void;
+  employeeRole: string;
+  setEmployeeRole: (role: string) => void;
 }
 
 export const useStore = create<StoreState>()(
@@ -115,6 +121,22 @@ export const useStore = create<StoreState>()(
       setAdminTab: (tab: string) => {
         set({ adminTab: tab });
       },
+
+      // Employee state
+      currentEmployee: null,
+
+      setCurrentEmployee: (employee: Employee | null) => {
+        set({
+          currentEmployee: employee,
+          employeeRole: employee?.role || '',
+        });
+      },
+
+      employeeRole: '',
+
+      setEmployeeRole: (role: string) => {
+        set({ employeeRole: role });
+      },
     }),
     {
       name: 'ecommerce-store',
@@ -125,6 +147,8 @@ export const useStore = create<StoreState>()(
         selectedProductId: state.selectedProductId,
         selectedCategory: state.selectedCategory,
         adminTab: state.adminTab,
+        currentEmployee: state.currentEmployee,
+        employeeRole: state.employeeRole,
       }),
     }
   )

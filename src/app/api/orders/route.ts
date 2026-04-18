@@ -30,6 +30,8 @@ export async function GET(request: NextRequest) {
         where,
         include: {
           customer: true,
+          employee: true,
+          confirmedByEmployee: true,
           items: {
             include: {
               product: true,
@@ -82,6 +84,7 @@ export async function POST(request: NextRequest) {
       paymentMethod,
       notes,
       facebookLeadId,
+      employeeId,
     } = body;
 
     if (!customer || !items || items.length === 0) {
@@ -195,12 +198,14 @@ export async function POST(request: NextRequest) {
           paymentMethod: paymentMethod || 'cod',
           notes: notes || null,
           facebookLeadId: facebookLeadId || null,
+          employeeId: employeeId || null,
           items: {
             create: orderItems,
           },
         },
         include: {
           customer: true,
+          employee: true,
           items: {
             include: {
               product: true,

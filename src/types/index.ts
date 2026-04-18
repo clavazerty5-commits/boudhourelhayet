@@ -57,12 +57,16 @@ export interface Order {
   total: number;
   subtotal: number;
   shipping: number;
-  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
   paymentMethod: 'cod' | 'card' | 'transfer';
   paymentStatus: 'unpaid' | 'paid';
   paidAt?: string | null;
   notes?: string;
   facebookLeadId?: string;
+  employeeId?: string | null;
+  employee?: Employee | null;
+  confirmedByEmployeeId?: string | null;
+  confirmedByEmployee?: Employee | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -76,6 +80,18 @@ export interface Customer {
   city?: string;
   notes?: string;
   orders?: Order[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Employee {
+  id: string;
+  username: string;
+  name: string;
+  role: 'admin' | 'seller' | 'seller_plus';
+  active: boolean;
+  ordersCount?: number;
+  confirmedOrdersCount?: number;
   createdAt: string;
   updatedAt: string;
 }

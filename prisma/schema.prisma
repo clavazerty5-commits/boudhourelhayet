@@ -68,6 +68,10 @@ model Order {
   paidAt      DateTime?
   notes       String?
   facebookLeadId String?
+  employeeId  String?
+  employee    Employee?   @relation("OrderCreator", fields: [employeeId], references: [id])
+  confirmedByEmployeeId String?
+  confirmedByEmployee    Employee?   @relation("PaymentConfirmer", fields: [confirmedByEmployeeId], references: [id])
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 }
@@ -88,6 +92,19 @@ model StoreSetting {
   key         String  @unique
   value       String
   updatedAt   DateTime @updatedAt
+}
+
+model Employee {
+  id            String   @id @default(cuid())
+  username      String   @unique
+  password      String
+  name          String
+  role          String   @default("seller")  // "admin" | "seller" | "seller_plus"
+  active        Boolean  @default(true)
+  orders        Order[]  @relation("OrderCreator")
+  confirmedOrders Order[] @relation("PaymentConfirmer")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model AdminUser {

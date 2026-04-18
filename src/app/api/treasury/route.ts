@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
       },
       include: {
         customer: true,
+        confirmedByEmployee: true,
       },
       orderBy: { paidAt: 'desc' },
     });
@@ -76,6 +77,7 @@ export async function GET(request: NextRequest) {
           customerName: o.customer?.name || '—',
           paidAt: o.paidAt,
           paymentMethod: o.paymentMethod,
+          confirmedByName: o.confirmedByEmployee?.name || null,
         })),
       });
     }
@@ -92,6 +94,42 @@ export async function GET(request: NextRequest) {
     });
     const unpaidTotal = unpaidOrders.reduce((sum, order) => sum + order.total, 0);
 
+    // Per-employee sales for today
+    const activeEmployees = await db.employee.findMany({
+      where: { active: true },
+      orderBy: { name: 'asc' },
+    });
+
+    const employeeSalesToday = await Promise.all(
+      activeEmployees.map(async (emp) => {
+        const empConfirmedOrders = await db.order.findMany({
+          where: {
+            confirmedByEmployeeId: emp.id,
+            paymentStatus: 'paid',
+            paidAt: { gte: today },
+          },
+        });
+
+        const empCreatedOrders = await db.order.findMany({
+          where: {
+            employeeId: emp.id,
+            createdAt: { gte: today },
+            status: { not: 'cancelled' },
+          },
+        });
+
+        return {
+          id: emp.id,
+          name: emp.name,
+          role: emp.role,
+          confirmedToday: empConfirmedOrders.length,
+          confirmedTodayTotal: empConfirmedOrders.reduce((sum, o) => sum + o.total, 0),
+          createdToday: empCreatedOrders.length,
+          createdTodayTotal: empCreatedOrders.reduce((sum, o) => sum + o.total, 0),
+        };
+      })
+    );
+
     return NextResponse.json({
       todaySales,
       todayOrdersCount,
@@ -100,6 +138,7 @@ export async function GET(request: NextRequest) {
       unpaidTotal,
       unpaidOrdersCount: unpaidOrders.length,
       dailyBreakdown,
+      employeeSalesToday,
     });
   } catch (error) {
     console.error('Error fetching treasury data:', error);
