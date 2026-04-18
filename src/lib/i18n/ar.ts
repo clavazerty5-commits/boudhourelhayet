@@ -349,6 +349,7 @@ export const ar = {
   confirmPaymentManageOrders: 'تأكيد الدفع وإدارة الطلبات',
   settingsAndFacebook: 'الإعدادات وفيسبوك',
   viewTreasury: 'عرض الخزينة',
+  manageEmployeesPermission: 'إدارة الموظفين',
   cannotManageEmployees: 'لا يمكنه إدارة الموظفين',
   confirmPaymentOnly: 'تأكيد الدفع فقط',
   viewOrdersChangeStatus: 'عرض الطلبات وتغيير حالتها',

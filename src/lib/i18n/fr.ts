@@ -351,6 +351,7 @@ export const fr: TranslationKeys = {
   confirmPaymentManageOrders: 'Confirmer le paiement et gérer les commandes',
   settingsAndFacebook: 'Paramètres et Facebook',
   viewTreasury: 'Voir la caisse',
+  manageEmployeesPermission: 'Gestion des employés',
   cannotManageEmployees: 'Ne peut pas gérer les employés',
   confirmPaymentOnly: 'Confirmation de paiement uniquement',
   viewOrdersChangeStatus: 'Voir les commandes et changer leur statut',
