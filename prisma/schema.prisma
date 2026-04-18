@@ -19,29 +19,29 @@ model Category {
 }
 
 model Product {
-  id          String    @id @default(cuid())
-  name        String
-  nameAr      String?
-  description String?
+  id            String      @id @default(cuid())
+  name          String
+  nameAr        String?
+  description   String?
   descriptionAr String?
-  price       Float
-  comparePrice Float?
-  images      String    @default("[]")
-  categoryId  String
-  category    Category  @relation(fields: [categoryId], references: [id])
-  stock       Int       @default(0)
-  featured    Boolean   @default(false)
-  active      Boolean   @default(true)
-  sku         String?
-  weight      Float?
+  price         Float
+  comparePrice  Float?
+  images        String      @default("[]")
+  categoryId    String
+  category      Category    @relation(fields: [categoryId], references: [id])
+  stock         Int         @default(0)
+  featured      Boolean     @default(false)
+  active        Boolean     @default(true)
+  sku           String?
+  weight        Float?
   facebookProductId String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  orderItems  OrderItem[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  orderItems    OrderItem[]
 }
 
 model Customer {
-  id        String    @id @default(cuid())
+  id        String   @id @default(cuid())
   name      String
   email     String
   phone     String
@@ -49,31 +49,31 @@ model Customer {
   city      String?
   notes     String?
   orders    Order[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Order {
-  id          String      @id @default(cuid())
-  orderNumber String      @unique
-  customerId  String
-  customer    Customer    @relation(fields: [customerId], references: [id])
-  items       OrderItem[]
-  total       Float
-  subtotal    Float
-  shipping    Float       @default(0)
-  status      String      @default("pending")
-  paymentMethod String    @default("cod")
-  paymentStatus String    @default("unpaid")
-  paidAt      DateTime?
-  notes       String?
-  facebookLeadId String?
-  employeeId  String?
-  employee    Employee?   @relation("OrderCreator", fields: [employeeId], references: [id])
+  id                    String      @id @default(cuid())
+  orderNumber           String      @unique
+  customerId            String
+  customer              Customer    @relation(fields: [customerId], references: [id])
+  items                 OrderItem[]
+  total                 Float
+  subtotal              Float
+  shipping              Float       @default(0)
+  status                String      @default("pending")
+  paymentMethod         String      @default("cod")
+  paymentStatus         String      @default("unpaid")
+  paidAt                DateTime?
+  notes                 String?
+  facebookLeadId        String?
+  employeeId            String?
+  employee              Employee?   @relation("OrderCreator", fields: [employeeId], references: [id])
   confirmedByEmployeeId String?
-  confirmedByEmployee    Employee?   @relation("PaymentConfirmer", fields: [confirmedByEmployeeId], references: [id])
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  confirmedByEmployee   Employee?   @relation("PaymentConfirmer", fields: [confirmedByEmployeeId], references: [id])
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
 }
 
 model OrderItem {
@@ -88,23 +88,23 @@ model OrderItem {
 }
 
 model StoreSetting {
-  id          String  @id @default(cuid())
-  key         String  @unique
-  value       String
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
 }
 
 model Employee {
-  id            String   @id @default(cuid())
-  username      String   @unique
-  password      String
-  name          String
-  role          String   @default("seller")  // "admin" | "seller" | "seller_plus"
-  active        Boolean  @default(true)
-  orders        Order[]  @relation("OrderCreator")
-  confirmedOrders Order[] @relation("PaymentConfirmer")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                String   @id @default(cuid())
+  username          String   @unique
+  password          String
+  name              String
+  role              String   @default("seller")
+  active            Boolean  @default(true)
+  orders            Order[]  @relation("OrderCreator")
+  confirmedOrders   Order[]  @relation("PaymentConfirmer")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 model AdminUser {
