@@ -23,11 +23,12 @@ export async function GET(request: NextRequest) {
       where.featured = true;
     }
 
-    if (active !== null && active !== undefined) {
+    if (active && active !== 'all') {
       where.active = active === 'true';
-    } else {
+    } else if (!active) {
       where.active = true;
     }
+    // if active === 'all', no filter is applied (shows both active and inactive)
 
     if (search) {
       where.OR = [

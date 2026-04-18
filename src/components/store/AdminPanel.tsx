@@ -338,6 +338,17 @@ export default function AdminPanel() {
     }
   };
 
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!confirm('هل أنت متأكد من حذف هذا الطلب؟ سيتم إرجاع الكميات إلى المخزون.')) return;
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete order');
+      fetchOrders();
+    } catch (err) {
+      console.error('Error deleting order:', err);
+    }
+  };
+
   // ─── Settings Save ───────────────────────────────────────────────────────
 
   const handleSaveSettings = async () => {
@@ -679,20 +690,22 @@ export default function AdminPanel() {
                               <TableCell>
                                 <div className="flex items-center gap-1">
                                   <Button
-                                    variant="ghost"
+                                    variant="outline"
                                     size="sm"
                                     onClick={() => openEditProduct(product)}
-                                    className="text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50"
+                                    className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800 gap-1"
                                   >
-                                    <Pencil className="w-4 h-4" />
+                                    <Pencil className="w-3.5 h-3.5" />
+                                    <span className="hidden sm:inline text-xs">تعديل</span>
                                   </Button>
                                   <Button
-                                    variant="ghost"
+                                    variant="outline"
                                     size="sm"
                                     onClick={() => handleDeleteProduct(product.id)}
-                                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                    className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-700 gap-1"
                                   >
-                                    <Trash2 className="w-4 h-4" />
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <span className="hidden sm:inline text-xs">حذف</span>
                                   </Button>
                                 </div>
                               </TableCell>
@@ -763,17 +776,29 @@ export default function AdminPanel() {
                                 {new Date(order.createdAt).toLocaleDateString('ar-TN')}
                               </TableCell>
                               <TableCell>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedOrder(order);
-                                    setOrderDetailDialogOpen(true);
-                                  }}
-                                  className="text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50"
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </Button>
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedOrder(order);
+                                      setOrderDetailDialogOpen(true);
+                                    }}
+                                    className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800 gap-1"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                    <span className="hidden sm:inline text-xs">عرض</span>
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleDeleteOrder(order.id)}
+                                    className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-700 gap-1"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <span className="hidden sm:inline text-xs">حذف</span>
+                                  </Button>
+                                </div>
                               </TableCell>
                             </TableRow>
                           ))}

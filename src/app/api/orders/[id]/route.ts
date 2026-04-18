@@ -155,3 +155,74 @@ export async function PUT(
     );
   }
 }
+
+// DELETE /api/orders/[id] - Delete an order
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+
+    const existingOrder = await db.order.findUnique({
+      where: { id },
+    });
+
+    if (!existingOrder) {
+      return NextResponse.json(
+        { error: 'Order not found' },
+        { status: 404 }
+      );
+    }
+
+    // If order is not cancelled, restore product stock before deleting
+    if (existingOrder.status !== 'cancelled') {
+      const orderItems = await db.orderItem.findMany({
+        where: { orderId: id },
+      });
+
+      await db.$transaction(async (tx) => {
+        // Restore stock for each item
+        for (const item of orderItems) {
+          const product = await tx.product.findUnique({
+            where: { id: item.productId },
+          });
+          if (product) {
+            await tx.product.update({
+              where: { id: item.productId },
+              data: {
+                stock: product.stock + item.quantity,
+              },
+            });
+          }
+        }
+
+        // Delete order items first (cascade)
+        await tx.orderItem.deleteMany({
+          where: { orderId: id },
+        });
+
+        // Delete the order
+        await tx.order.delete({
+          where: { id },
+        });
+      });
+    } else {
+      // Order already cancelled, just delete it
+      await db.orderItem.deleteMany({
+        where: { orderId: id },
+      });
+      await db.order.delete({
+        where: { id },
+      });
+    }
+
+    return NextResponse.json({ message: 'Order deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting order:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete order' },
+      { status: 500 }
+    );
+  }
+}
