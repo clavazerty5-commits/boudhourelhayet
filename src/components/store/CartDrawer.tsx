@@ -5,6 +5,7 @@ import { ShoppingCart, ArrowRight, Trash2, Plus, Minus, ShoppingBag } from 'luci
 import { useStore } from '@/lib/store';
 import { formatPrice } from '@/lib/utils';
 import { trackInitCheckout } from '@/lib/facebook';
+import { getTranslation, getDirection } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -15,6 +16,11 @@ const FREE_SHIPPING_THRESHOLD = 5000;
 
 export default function CartDrawer() {
   const { items, removeItem, updateQuantity, getTotal, setPage } = useStore();
+  const locale = useStore((s) => s.locale);
+  const t = getTranslation(locale);
+  const dir = getDirection(locale);
+  const isRTL = dir === 'rtl';
+
   const [shippingFee, setShippingFee] = useState(DEFAULT_SHIPPING_FEE);
   const [freeShippingThreshold, setFreeShippingThreshold] = useState(FREE_SHIPPING_THRESHOLD);
 
@@ -60,28 +66,28 @@ export default function CartDrawer() {
 
   if (items.length === 0) {
     return (
-      <div dir="rtl" className="min-h-screen bg-background">
+      <div dir={dir} className="min-h-screen bg-background">
         <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b">
           <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setPage('shop')}
-              aria-label="العودة"
+              aria-label={t.back}
             >
               <ArrowRight className="size-5" />
             </Button>
-            <h1 className="text-xl font-bold">سلة التسوق</h1>
+            <h1 className="text-xl font-bold">{t.shoppingCart}</h1>
           </div>
         </div>
 
         <div className="max-w-4xl mx-auto px-4 py-16 flex flex-col items-center justify-center text-center">
           <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-6">
-            <ShoppingCart className="size-10 text-muted-foreground" />
+            <ShoppingCart className={`size-10 text-muted-foreground ${isRTL ? 'ml-1' : 'mr-1'}`} />
           </div>
-          <h2 className="text-2xl font-bold mb-2">سلتك فارغة</h2>
+          <h2 className="text-2xl font-bold mb-2">{t.yourCartIsEmpty}</h2>
           <p className="text-muted-foreground mb-8 max-w-sm">
-            لم تقم بإضافة أي منتجات بعد. اكتشف منتجاتنا المميزة وأضفها إلى سلتك!
+            {t.emptyCartDesc}
           </p>
           <Button
             size="lg"
@@ -89,7 +95,7 @@ export default function CartDrawer() {
             className="gap-2"
           >
             <ShoppingBag className="size-5" />
-            تسوق الآن
+            {t.shopNowBtn}
           </Button>
         </div>
       </div>
@@ -97,7 +103,7 @@ export default function CartDrawer() {
   }
 
   return (
-    <div dir="rtl" className="min-h-screen bg-background">
+    <div dir={dir} className="min-h-screen bg-background">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3">
@@ -105,11 +111,11 @@ export default function CartDrawer() {
             variant="ghost"
             size="icon"
             onClick={() => setPage('shop')}
-            aria-label="العودة"
+            aria-label={t.back}
           >
             <ArrowRight className="size-5" />
           </Button>
-          <h1 className="text-xl font-bold">سلة التسوق</h1>
+          <h1 className="text-xl font-bold">{t.shoppingCart}</h1>
           <span className="bg-primary text-primary-foreground text-xs font-medium px-2 py-0.5 rounded-full">
             {itemCount}
           </span>
@@ -150,7 +156,7 @@ export default function CartDrawer() {
                           size="icon"
                           className="size-8 text-muted-foreground hover:text-destructive flex-shrink-0"
                           onClick={() => removeItem(item.productId)}
-                          aria-label={`حذف ${item.name}`}
+                          aria-label={`${t.remove} ${item.name}`}
                         >
                           <Trash2 className="size-4" />
                         </Button>
@@ -167,7 +173,7 @@ export default function CartDrawer() {
                           size="icon"
                           className="size-8"
                           onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                          aria-label="تقليل الكمية"
+                          aria-label={t.decreaseQty}
                         >
                           <Minus className="size-3" />
                         </Button>
@@ -179,12 +185,12 @@ export default function CartDrawer() {
                           size="icon"
                           className="size-8"
                           onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                          aria-label="زيادة الكمية"
+                          aria-label={t.increaseQty}
                         >
                           <Plus className="size-3" />
                         </Button>
-                        <span className="text-muted-foreground text-sm mr-2">
-                          المجموع: {formatPrice(item.price * item.quantity)}
+                        <span className={`text-muted-foreground text-sm ${isRTL ? 'mr-2' : 'ml-2'}`}>
+                          {t.totalItem} {formatPrice(item.price * item.quantity)}
                         </span>
                       </div>
                     </div>
@@ -198,20 +204,20 @@ export default function CartDrawer() {
           <div className="lg:w-80 lg:flex-shrink-0">
             <Card className="sticky top-20">
               <CardContent className="p-6 space-y-4">
-                <h2 className="font-bold text-lg">ملخص الطلب</h2>
+                <h2 className="font-bold text-lg">{t.orderSummary}</h2>
 
                 <Separator />
 
                 <div className="space-y-3">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">المجموع الفرعي</span>
+                    <span className="text-muted-foreground">{t.subtotal}</span>
                     <span className="font-medium">{formatPrice(subtotal)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">رسوم التوصيل</span>
+                    <span className="text-muted-foreground">{t.deliveryFee}</span>
                     <span className="font-medium">
                       {isFreeShipping ? (
-                        <span className="text-green-600">مجاني</span>
+                        <span className="text-green-600">{t.free}</span>
                       ) : (
                         formatPrice(shipping)
                       )}
@@ -219,7 +225,7 @@ export default function CartDrawer() {
                   </div>
                   {!isFreeShipping && freeShippingThreshold > 0 && (
                     <p className="text-xs text-muted-foreground">
-                      أضف منتجات بقيمة {formatPrice(freeShippingThreshold - subtotal)} للحصول على توصيل مجاني
+                      {t.addMoreForFreeShipping.replace('{amount}', formatPrice(freeShippingThreshold - subtotal))}
                     </p>
                   )}
                 </div>
@@ -227,7 +233,7 @@ export default function CartDrawer() {
                 <Separator />
 
                 <div className="flex justify-between font-bold text-lg">
-                  <span>الإجمالي</span>
+                  <span>{t.total}</span>
                   <span className="text-primary">{formatPrice(total)}</span>
                 </div>
 
@@ -236,7 +242,7 @@ export default function CartDrawer() {
                   size="lg"
                   onClick={handleCheckout}
                 >
-                  إتمام الطلب
+                  {t.checkout}
                 </Button>
 
                 <Button
@@ -246,7 +252,7 @@ export default function CartDrawer() {
                   onClick={() => setPage('shop')}
                 >
                   <ShoppingBag className="size-4" />
-                  متابعة التسوق
+                  {t.continueShopping}
                 </Button>
               </CardContent>
             </Card>

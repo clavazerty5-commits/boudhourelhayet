@@ -13,6 +13,7 @@ import {
 import { useStore } from '@/lib/store';
 import { formatPrice } from '@/lib/utils';
 import { trackPurchase, shareOnFacebook } from '@/lib/facebook';
+import { getTranslation, getDirection, GOVERNORATE_KEYS } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -28,36 +29,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-
-// Tunisian governorates (الولايات التونسية)
-const TUNISIAN_GOVERNORATES = [
-  'تونس',
-  'أريانة',
-  'بن عروس',
-  'منوبة',
-  'نابل',
-  'زغوان',
-  'بنزرت',
-  'باجة',
-  'جندوبة',
-  'الكاف',
-  'سليانة',
-  'القيروان',
-  'القصرين',
-  'سيدي بوزيد',
-  'صفاقس',
-  'المهدية',
-  'المنستير',
-  'سوسة',
-  'تطاوين',
-  'قبلي',
-  'قفصة',
-  'توزر',
-  'قابس',
-  'مدنين',
-  'صفاقس',
-  'الكاف',
-];
 
 // Default shipping fee (TND)
 const DEFAULT_SHIPPING_FEE = 8;
@@ -82,6 +53,10 @@ interface FormErrors {
 
 export default function CheckoutForm() {
   const { items, getTotal, clearCart, setPage } = useStore();
+  const locale = useStore((s) => s.locale);
+  const t = getTranslation(locale);
+  const dir = getDirection(locale);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderConfirmed, setOrderConfirmed] = useState(false);
   const [orderNumber, setOrderNumber] = useState('');
@@ -134,21 +109,21 @@ export default function CheckoutForm() {
     const newErrors: FormErrors = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = 'الاسم مطلوب';
+      newErrors.name = t.nameRequired;
     }
 
     if (!formData.phone.trim()) {
-      newErrors.phone = 'رقم الهاتف مطلوب';
+      newErrors.phone = t.phoneRequired;
     } else if (!/^[0-9+\-\s()]{8,15}$/.test(formData.phone.trim())) {
-      newErrors.phone = 'رقم الهاتف غير صالح';
+      newErrors.phone = t.phoneInvalid;
     }
 
     if (!formData.city) {
-      newErrors.city = 'المدينة مطلوبة';
+      newErrors.city = t.cityRequired;
     }
 
     if (!formData.address.trim()) {
-      newErrors.address = 'العنوان مطلوب';
+      newErrors.address = t.addressRequired;
     }
 
     setErrors(newErrors);
@@ -159,12 +134,12 @@ export default function CheckoutForm() {
     e.preventDefault();
 
     if (items.length === 0) {
-      toast.error('سلتك فارغة');
+      toast.error(t.cartEmpty);
       return;
     }
 
     if (!validateForm()) {
-      toast.error('يرجى ملء جميع الحقول المطلوبة');
+      toast.error(t.fillRequired);
       return;
     }
 
@@ -197,7 +172,7 @@ export default function CheckoutForm() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || 'فشل في إنشاء الطلب');
+        throw new Error(errorData.error || t.orderFailed);
       }
 
       const order = await res.json();
@@ -217,9 +192,9 @@ export default function CheckoutForm() {
       setOrderNumber(order.orderNumber);
       setOrderConfirmed(true);
       clearCart();
-      toast.success('تم تأكيد طلبك بنجاح!');
+      toast.success(t.orderConfirmedSuccess);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'حدث خطأ أثناء إرسال الطلب';
+      const message = error instanceof Error ? error.message : t.orderError;
       toast.error(message);
     } finally {
       setIsSubmitting(false);
@@ -236,14 +211,14 @@ export default function CheckoutForm() {
   const handleShareOnFacebook = () => {
     shareOnFacebook(
       window.location.href,
-      `لقد طلبت من المتجر! رقم الطلب: ${orderNumber}`
+      `${t.orderedFromStore} ${orderNumber}`
     );
   };
 
   // Order Confirmation View
   if (orderConfirmed) {
     return (
-      <div dir="rtl" className="min-h-screen bg-background">
+      <div dir={dir} className="min-h-screen bg-background">
         <div className="max-w-2xl mx-auto px-4 py-16">
           <div className="text-center space-y-6">
             <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto">
@@ -251,32 +226,32 @@ export default function CheckoutForm() {
             </div>
 
             <div className="space-y-2">
-              <h1 className="text-2xl font-bold">تم تأكيد طلبك!</h1>
+              <h1 className="text-2xl font-bold">{t.orderConfirmed}</h1>
               <p className="text-muted-foreground">
-                شكراً لطلبك. سنقوم بمعالجته في أقرب وقت.
+                {t.orderConfirmedDesc}
               </p>
             </div>
 
             <Card>
               <CardContent className="p-6 space-y-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">رقم الطلب</span>
+                  <span className="text-muted-foreground">{t.orderNumber}</span>
                   <span className="font-bold text-lg font-mono">{orderNumber}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">حالة الطلب</span>
+                  <span className="text-muted-foreground">{t.orderStatus}</span>
                   <span className="text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full font-medium">
-                    قيد الانتظار
+                    {t.pendingStatus}
                   </span>
                 </div>
                 <Separator />
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">طريقة الدفع</span>
+                  <span className="text-muted-foreground">{t.paymentMethodLabel}</span>
                   <span className="font-medium">
                     {formData.paymentMethod === 'cod'
-                      ? 'الدفع عند الاستلام'
-                      : 'تحويل بنكي'}
+                      ? t.cashOnDelivery
+                      : t.bankTransfer}
                   </span>
                 </div>
               </CardContent>
@@ -289,14 +264,14 @@ export default function CheckoutForm() {
                 onClick={handleShareOnFacebook}
               >
                 <Share2 className="size-4" />
-                مشاركة على فيسبوك
+                {t.shareOnFacebook}
               </Button>
               <Button
                 className="gap-2"
                 onClick={() => setPage('shop')}
               >
                 <ShoppingBag className="size-4" />
-                متابعة التسوق
+                {t.continueShopping}
               </Button>
             </div>
           </div>
@@ -308,18 +283,18 @@ export default function CheckoutForm() {
   // Redirect to shop if cart is empty
   if (items.length === 0) {
     return (
-      <div dir="rtl" className="min-h-screen bg-background">
+      <div dir={dir} className="min-h-screen bg-background">
         <div className="max-w-2xl mx-auto px-4 py-16 text-center">
           <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mx-auto mb-6">
             <ShoppingBag className="size-10 text-muted-foreground" />
           </div>
-          <h2 className="text-2xl font-bold mb-2">سلتك فارغة</h2>
+          <h2 className="text-2xl font-bold mb-2">{t.yourCartIsEmpty}</h2>
           <p className="text-muted-foreground mb-8">
-            أضف منتجات إلى سلتك قبل إتمام الطلب
+            {t.noProductsInCart}
           </p>
           <Button onClick={() => setPage('shop')} className="gap-2">
             <ShoppingBag className="size-4" />
-            تسوق الآن
+            {t.shopNowBtn}
           </Button>
         </div>
       </div>
@@ -327,7 +302,7 @@ export default function CheckoutForm() {
   }
 
   return (
-    <div dir="rtl" className="min-h-screen bg-background">
+    <div dir={dir} className="min-h-screen bg-background">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center gap-3">
@@ -335,11 +310,11 @@ export default function CheckoutForm() {
             variant="ghost"
             size="icon"
             onClick={() => setPage('cart')}
-            aria-label="العودة إلى السلة"
+            aria-label={t.backToCart}
           >
             <ArrowRight className="size-5" />
           </Button>
-          <h1 className="text-xl font-bold">إتمام الطلب</h1>
+          <h1 className="text-xl font-bold">{t.completeOrder}</h1>
         </div>
       </div>
 
@@ -350,17 +325,17 @@ export default function CheckoutForm() {
             {/* Customer Information */}
             <Card>
               <CardContent className="p-6 space-y-5">
-                <h2 className="font-bold text-lg">معلومات العميل</h2>
+                <h2 className="font-bold text-lg">{t.customerInfo}</h2>
 
                 {/* Name */}
                 <div className="space-y-2">
                   <Label htmlFor="name">
-                    الاسم الكامل <span className="text-destructive">*</span>
+                    {t.fullName} <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     id="name"
                     type="text"
-                    placeholder="أدخل اسمك الكامل"
+                    placeholder={t.enterFullName}
                     value={formData.name}
                     onChange={(e) => handleChange('name', e.target.value)}
                     aria-invalid={!!errors.name}
@@ -374,7 +349,7 @@ export default function CheckoutForm() {
                 {/* Phone */}
                 <div className="space-y-2">
                   <Label htmlFor="phone">
-                    رقم الهاتف <span className="text-destructive">*</span>
+                    {t.phoneNumber} <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     id="phone"
@@ -393,7 +368,7 @@ export default function CheckoutForm() {
 
                 {/* Email */}
                 <div className="space-y-2">
-                  <Label htmlFor="email">البريد الإلكتروني (اختياري)</Label>
+                  <Label htmlFor="email">{t.emailAddress}</Label>
                   <Input
                     id="email"
                     type="email"
@@ -410,12 +385,12 @@ export default function CheckoutForm() {
             {/* Delivery Information */}
             <Card>
               <CardContent className="p-6 space-y-5">
-                <h2 className="font-bold text-lg">معلومات التوصيل</h2>
+                <h2 className="font-bold text-lg">{t.deliveryInfo}</h2>
 
                 {/* City */}
                 <div className="space-y-2">
                   <Label htmlFor="city">
-                    المدينة <span className="text-destructive">*</span>
+                    {t.city} <span className="text-destructive">*</span>
                   </Label>
                   <Select
                     value={formData.city}
@@ -425,12 +400,12 @@ export default function CheckoutForm() {
                       className={`w-full ${errors.city ? 'border-destructive' : ''}`}
                       aria-invalid={!!errors.city}
                     >
-                      <SelectValue placeholder="اختر المدينة" />
+                      <SelectValue placeholder={t.chooseCity} />
                     </SelectTrigger>
                     <SelectContent>
-                      {TUNISIAN_GOVERNORATES.map((city) => (
-                        <SelectItem key={city} value={city}>
-                          {city}
+                      {GOVERNORATE_KEYS.map((key) => (
+                        <SelectItem key={key} value={key}>
+                          {t.governorates[key]}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -443,11 +418,11 @@ export default function CheckoutForm() {
                 {/* Address */}
                 <div className="space-y-2">
                   <Label htmlFor="address">
-                    العنوان <span className="text-destructive">*</span>
+                    {t.address} <span className="text-destructive">*</span>
                   </Label>
                   <Textarea
                     id="address"
-                    placeholder="أدخل عنوانك بالتفصيل"
+                    placeholder={t.enterAddressDetail}
                     value={formData.address}
                     onChange={(e) => handleChange('address', e.target.value)}
                     className={errors.address ? 'border-destructive' : ''}
@@ -461,10 +436,10 @@ export default function CheckoutForm() {
 
                 {/* Notes */}
                 <div className="space-y-2">
-                  <Label htmlFor="notes">ملاحظات (اختياري)</Label>
+                  <Label htmlFor="notes">{t.notes}</Label>
                   <Textarea
                     id="notes"
-                    placeholder="أي ملاحظات إضافية حول الطلب"
+                    placeholder={t.additionalNotes}
                     value={formData.notes}
                     onChange={(e) => handleChange('notes', e.target.value)}
                     rows={2}
@@ -476,7 +451,7 @@ export default function CheckoutForm() {
             {/* Payment Method */}
             <Card>
               <CardContent className="p-6 space-y-5">
-                <h2 className="font-bold text-lg">طريقة الدفع</h2>
+                <h2 className="font-bold text-lg">{t.paymentMethod}</h2>
 
                 <RadioGroup
                   value={formData.paymentMethod}
@@ -493,9 +468,9 @@ export default function CheckoutForm() {
                     >
                       <Truck className="size-5 text-primary" />
                       <div>
-                        <p className="font-medium">الدفع عند الاستلام</p>
+                        <p className="font-medium">{t.cashOnDelivery}</p>
                         <p className="text-sm text-muted-foreground">
-                          ادفع نقداً عند استلام طلبك
+                          {t.codDesc}
                         </p>
                       </div>
                     </label>
@@ -509,9 +484,9 @@ export default function CheckoutForm() {
                     >
                       <Building2 className="size-5 text-primary" />
                       <div>
-                        <p className="font-medium">تحويل بنكي</p>
+                        <p className="font-medium">{t.bankTransfer}</p>
                         <p className="text-sm text-muted-foreground">
-                          حوّل المبلغ إلى حسابنا البنكي
+                          {t.transferDesc}
                         </p>
                       </div>
                     </label>
@@ -525,7 +500,7 @@ export default function CheckoutForm() {
           <div className="lg:w-80 lg:flex-shrink-0">
             <Card className="sticky top-20">
               <CardContent className="p-6 space-y-4">
-                <h2 className="font-bold text-lg">ملخص الطلب</h2>
+                <h2 className="font-bold text-lg">{t.orderSummary}</h2>
 
                 <Separator />
 
@@ -562,14 +537,14 @@ export default function CheckoutForm() {
 
                 <div className="space-y-3">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">المجموع الفرعي</span>
+                    <span className="text-muted-foreground">{t.subtotal}</span>
                     <span className="font-medium">{formatPrice(subtotal)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">رسوم التوصيل</span>
+                    <span className="text-muted-foreground">{t.deliveryFee}</span>
                     <span className="font-medium">
                       {isFreeShipping ? (
-                        <span className="text-green-600">مجاني</span>
+                        <span className="text-green-600">{t.free}</span>
                       ) : (
                         formatPrice(shipping)
                       )}
@@ -577,7 +552,7 @@ export default function CheckoutForm() {
                   </div>
                   {!isFreeShipping && freeShippingThreshold > 0 && (
                     <p className="text-xs text-muted-foreground">
-                      أضف منتجات بقيمة {formatPrice(freeShippingThreshold - subtotal)} للحصول على توصيل مجاني
+                      {t.addMoreForFreeShipping.replace('{amount}', formatPrice(freeShippingThreshold - subtotal))}
                     </p>
                   )}
                 </div>
@@ -585,7 +560,7 @@ export default function CheckoutForm() {
                 <Separator />
 
                 <div className="flex justify-between font-bold text-lg">
-                  <span>الإجمالي</span>
+                  <span>{t.total}</span>
                   <span className="text-primary">{formatPrice(total)}</span>
                 </div>
 
@@ -598,10 +573,10 @@ export default function CheckoutForm() {
                   {isSubmitting ? (
                     <>
                       <Loader2 className="size-4 animate-spin" />
-                      جارٍ إرسال الطلب...
+                      {t.submitting}
                     </>
                   ) : (
-                    'تأكيد الطلب'
+                    t.confirmOrder
                   )}
                 </Button>
               </CardContent>

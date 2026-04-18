@@ -7,6 +7,7 @@ import { ShoppingCart } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { trackAddToCart } from '@/lib/facebook';
 import { formatPrice } from '@/lib/utils';
+import { getTranslation, getDirection, getLocalizedName } from '@/lib/i18n';
 import type { Product } from '@/types';
 
 interface ProductCardProps {
@@ -17,6 +18,11 @@ export default function ProductCard({ product }: ProductCardProps) {
   const addItem = useStore((s) => s.addItem);
   const setSelectedProductId = useStore((s) => s.setSelectedProductId);
   const setPage = useStore((s) => s.setPage);
+  const locale = useStore((s) => s.locale);
+
+  const t = getTranslation(locale);
+  const dir = getDirection(locale);
+  const isRTL = dir === 'rtl';
 
   const discountPercentage =
     product.comparePrice && product.comparePrice > product.price
@@ -24,6 +30,8 @@ export default function ProductCard({ product }: ProductCardProps) {
           ((product.comparePrice - product.price) / product.comparePrice) * 100
         )
       : null;
+
+  const displayName = getLocalizedName(product, locale);
 
   const initials =
     product.nameAr?.slice(0, 2) ?? product.name.slice(0, 2).toUpperCase();
@@ -36,7 +44,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
     addItem({
       productId: product.id,
-      name: product.nameAr ?? product.name,
+      name: displayName,
       price: product.price,
       quantity: 1,
       image: product.images?.[0] ?? '',
@@ -44,10 +52,10 @@ export default function ProductCard({ product }: ProductCardProps) {
 
     trackAddToCart({
       id: product.id,
-      name: product.nameAr ?? product.name,
+      name: displayName,
       price: product.price,
       quantity: 1,
-      category: product.category?.nameAr ?? product.category?.name,
+      category: product.category ? getLocalizedName(product.category, locale) : undefined,
     });
   };
 
@@ -66,7 +74,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         {product.images && product.images.length > 0 && product.images[0] ? (
           <img
             src={product.images[0]}
-            alt={product.nameAr ?? product.name}
+            alt={displayName}
             className="w-full aspect-square object-cover"
           />
         ) : (
@@ -83,7 +91,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         {/* Discount Badge */}
         {discountPercentage && (
           <Badge className="absolute top-2 start-2 bg-red-500 text-white border-none text-xs font-bold">
-            خصم {discountPercentage}%
+            {t.discount} {discountPercentage}%
           </Badge>
         )}
 
@@ -91,7 +99,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         {isOutOfStock && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
             <Badge className="bg-gray-800 text-white border-none text-sm">
-              نفذ المخزون
+              {t.outOfStock}
             </Badge>
           </div>
         )}
@@ -99,12 +107,12 @@ export default function ProductCard({ product }: ProductCardProps) {
 
       <CardContent className="p-4 space-y-3">
         {/* Product Name */}
-        <h3 className="font-semibold text-sm line-clamp-2 text-right leading-relaxed min-h-[2.5rem]">
-          {product.nameAr ?? product.name}
+        <h3 className={`font-semibold text-sm line-clamp-2 leading-relaxed min-h-[2.5rem] ${isRTL ? 'text-right' : 'text-left'}`}>
+          {displayName}
         </h3>
 
         {/* Price Section */}
-        <div className="flex items-end gap-2 justify-end">
+        <div className={`flex items-end gap-2 ${isRTL ? 'justify-end' : 'justify-start'}`}>
           {product.comparePrice && (
             <span className="text-xs text-muted-foreground line-through">
               {formatPrice(product.comparePrice)}
@@ -122,8 +130,8 @@ export default function ProductCard({ product }: ProductCardProps) {
           className="w-full bg-emerald-600 hover:bg-emerald-700 text-white transition-colors"
           size="sm"
         >
-          <ShoppingCart className="w-4 h-4 ml-1" />
-          أضف للسلة
+          <ShoppingCart className={`w-4 h-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
+          {t.addToCart}
         </Button>
       </CardContent>
     </Card>

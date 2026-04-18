@@ -19,6 +19,7 @@ import {
   Hash,
   AlertCircle,
 } from 'lucide-react';
+import { getTranslation, getDirection, getLocalizedName, getLocalizedDescription } from '@/lib/i18n';
 import ProductCard from './ProductCard';
 import type { Product } from '@/types';
 
@@ -31,6 +32,11 @@ export default function ProductDetail() {
   const selectedProductId = useStore((s) => s.selectedProductId);
   const addItem = useStore((s) => s.addItem);
   const setPage = useStore((s) => s.setPage);
+  const locale = useStore((s) => s.locale);
+
+  const t = getTranslation(locale);
+  const dir = getDirection(locale);
+  const isRTL = dir === 'rtl';
 
   const fetchProduct = useCallback(async () => {
     if (!selectedProductId) return;
@@ -73,9 +79,11 @@ export default function ProductDetail() {
   const handleAddToCart = () => {
     if (!product || product.stock === 0) return;
 
+    const displayName = getLocalizedName(product, locale);
+
     addItem({
       productId: product.id,
-      name: product.nameAr ?? product.name,
+      name: displayName,
       price: product.price,
       quantity,
       image: product.images?.[0] ?? '',
@@ -83,17 +91,18 @@ export default function ProductDetail() {
 
     trackAddToCart({
       id: product.id,
-      name: product.nameAr ?? product.name,
+      name: displayName,
       price: product.price,
       quantity,
-      category: product.category?.nameAr ?? product.category?.name,
+      category: product.category ? getLocalizedName(product.category, locale) : undefined,
     });
   };
 
   const handleShare = () => {
     if (!product) return;
+    const displayName = getLocalizedName(product, locale);
     const productUrl = `${window.location.origin}?product=${product.id}`;
-    shareOnFacebook(productUrl, product.nameAr ?? product.name);
+    shareOnFacebook(productUrl, displayName);
   };
 
   const discountPercentage =
@@ -131,20 +140,24 @@ export default function ProductDetail() {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center px-4">
         <AlertCircle className="w-16 h-16 text-muted-foreground/40 mb-4" />
-        <h2 className="text-xl font-semibold mb-2">المنتج غير موجود</h2>
+        <h2 className="text-xl font-semibold mb-2">{t.productNotFound}</h2>
         <p className="text-muted-foreground mb-6">
-          لم نتمكن من العثور على هذا المنتج
+          {t.productNotFoundDesc}
         </p>
         <Button onClick={() => setPage('shop')} variant="outline">
-          <ArrowRight className="w-4 h-4 ml-2" />
-          العودة للمتجر
+          <ArrowRight className={`w-4 h-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
+          {t.backToStore}
         </Button>
       </div>
     );
   }
 
+  const displayName = getLocalizedName(product, locale);
+  const displayDescription = getLocalizedDescription(product, locale);
+  const displayCategory = product.category ? getLocalizedName(product.category, locale) : null;
+
   return (
-    <div className="space-y-8 px-4 sm:px-6 pb-8">
+    <div className="space-y-8 px-4 sm:px-6 pb-8" dir={dir}>
       {/* Back Button */}
       <Button
         variant="ghost"
@@ -152,7 +165,7 @@ export default function ProductDetail() {
         className="gap-2 text-muted-foreground hover:text-foreground"
       >
         <ArrowRight className="w-4 h-4" />
-        العودة للمتجر
+        {t.backToStore}
       </Button>
 
       {/* Product Main Section */}
@@ -162,7 +175,7 @@ export default function ProductDetail() {
           {product.images && product.images.length > 0 && product.images[0] ? (
             <img
               src={product.images[0]}
-              alt={product.nameAr ?? product.name}
+              alt={displayName}
               className="w-full aspect-square rounded-2xl object-cover shadow-lg"
             />
           ) : (
@@ -179,7 +192,7 @@ export default function ProductDetail() {
           {/* Discount Badge */}
           {discountPercentage && (
             <Badge className="absolute top-4 start-4 bg-red-500 text-white border-none text-base px-3 py-1">
-              خصم {discountPercentage}%
+              {t.discount} {discountPercentage}%
             </Badge>
           )}
 
@@ -187,7 +200,7 @@ export default function ProductDetail() {
           {isOutOfStock && (
             <div className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center">
               <Badge className="bg-gray-800 text-white border-none text-lg px-4 py-2">
-                نفذ المخزون
+                {t.outOfStock}
               </Badge>
             </div>
           )}
@@ -196,19 +209,19 @@ export default function ProductDetail() {
         {/* Product Info */}
         <div className="flex flex-col gap-5">
           {/* Category */}
-          {product.category && (
+          {product.category && displayCategory && (
             <Badge variant="secondary" className="w-fit">
-              {product.category.nameAr ?? product.category.name}
+              {displayCategory}
             </Badge>
           )}
 
           {/* Name */}
-          <h1 className="text-2xl sm:text-3xl font-bold text-right leading-tight">
-            {product.nameAr ?? product.name}
+          <h1 className={`text-2xl sm:text-3xl font-bold leading-tight ${isRTL ? 'text-right' : 'text-left'}`}>
+            {displayName}
           </h1>
 
           {/* Price */}
-          <div className="flex items-end gap-3 justify-end">
+          <div className={`flex items-end gap-3 ${isRTL ? 'justify-end' : 'justify-start'}`}>
             {product.comparePrice && (
               <span className="text-base text-muted-foreground line-through">
                 {formatPrice(product.comparePrice)}
@@ -220,23 +233,18 @@ export default function ProductDetail() {
           </div>
 
           {/* Description */}
-          {product.descriptionAr && (
-            <p className="text-muted-foreground leading-relaxed text-right">
-              {product.descriptionAr}
-            </p>
-          )}
-          {!product.descriptionAr && product.description && (
-            <p className="text-muted-foreground leading-relaxed text-right">
-              {product.description}
+          {displayDescription && (
+            <p className={`text-muted-foreground leading-relaxed ${isRTL ? 'text-right' : 'text-left'}`}>
+              {displayDescription}
             </p>
           )}
 
           <Separator />
 
           {/* Quantity Selector */}
-          <div className="flex items-center gap-4 justify-end">
+          <div className={`flex items-center gap-4 ${isRTL ? 'justify-end' : 'justify-start'}`}>
             <span className="text-sm font-medium text-muted-foreground">
-              الكمية:
+              {t.quantity}
             </span>
             <div className="flex items-center gap-2">
               <Button
@@ -275,8 +283,8 @@ export default function ProductDetail() {
               size="lg"
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-base py-6 transition-colors"
             >
-              <ShoppingCart className="w-5 h-5 ml-2" />
-              {isOutOfStock ? 'نفذ المخزون' : 'أضف للسلة'}
+              <ShoppingCart className={`w-5 h-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
+              {isOutOfStock ? t.outOfStock : t.addToCart}
             </Button>
 
             <Button
@@ -285,8 +293,8 @@ export default function ProductDetail() {
               onClick={handleShare}
               className="w-full py-5"
             >
-              <Share2 className="w-5 h-4 ml-2" />
-              مشاركة على فيسبوك
+              <Share2 className={`w-5 h-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
+              {t.shareOnFacebook}
             </Button>
           </div>
         </div>
@@ -294,33 +302,33 @@ export default function ProductDetail() {
 
       {/* Product Details Section */}
       <div className="bg-muted/50 rounded-xl p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-right">تفاصيل المنتج</h2>
+        <h2 className={`text-lg font-semibold ${isRTL ? 'text-right' : 'text-left'}`}>{t.productDetails}</h2>
         <Separator />
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* SKU */}
           {product.sku && (
-            <div className="flex items-center gap-3 justify-end">
+            <div className={`flex items-center gap-3 ${isRTL ? 'justify-end' : 'justify-start'}`}>
               <span className="text-sm text-muted-foreground">
                 {product.sku}
               </span>
               <Hash className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm font-medium">رمز المنتج:</span>
+              <span className="text-sm font-medium">{t.productCode}</span>
             </div>
           )}
 
           {/* Weight */}
           {product.weight && (
-            <div className="flex items-center gap-3 justify-end">
+            <div className={`flex items-center gap-3 ${isRTL ? 'justify-end' : 'justify-start'}`}>
               <span className="text-sm text-muted-foreground">
-                {product.weight} غرام
+                {product.weight} {t.grams}
               </span>
               <Weight className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm font-medium">الوزن:</span>
+              <span className="text-sm font-medium">{t.weight}</span>
             </div>
           )}
 
           {/* Stock Status */}
-          <div className="flex items-center gap-3 justify-end">
+          <div className={`flex items-center gap-3 ${isRTL ? 'justify-end' : 'justify-start'}`}>
             <span
               className={`text-sm ${
                 isOutOfStock
@@ -328,14 +336,14 @@ export default function ProductDetail() {
                   : 'text-emerald-600'
               }`}
             >
-              {isOutOfStock ? 'نفذ المخزون' : `متوفر (${product.stock})`}
+              {isOutOfStock ? t.outOfStock : t.availableStock.replace('{stock}', String(product.stock))}
             </span>
             <Package
               className={`w-4 h-4 ${
                 isOutOfStock ? 'text-red-500' : 'text-emerald-600'
               }`}
             />
-            <span className="text-sm font-medium">حالة المخزون:</span>
+            <span className="text-sm font-medium">{t.stockStatus}</span>
           </div>
         </div>
       </div>
@@ -343,7 +351,7 @@ export default function ProductDetail() {
       {/* Related Products */}
       {relatedProducts.length > 0 && (
         <div className="space-y-6">
-          <h2 className="text-xl font-semibold text-right">منتجات ذات صلة</h2>
+          <h2 className={`text-xl font-semibold ${isRTL ? 'text-right' : 'text-left'}`}>{t.relatedProducts}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {relatedProducts.slice(0, 4).map((relatedProduct) => (
               <ProductCard key={relatedProduct.id} product={relatedProduct} />
