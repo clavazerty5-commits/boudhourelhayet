@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: boudhour-el-hayet
+    runtime: node
+    plan: free
+    buildCommand: npm install && npx prisma generate && npx prisma db push && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: DATABASE_URL
+        value: file:/var/data/boudhour.db
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+    disk:
+      name: boudhour-data
+      mountPath: /var/data
+      sizeGB: 1
