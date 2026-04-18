@@ -157,16 +157,24 @@ export default function ProductDetail() {
 
       {/* Product Main Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Image Placeholder */}
+        {/* Product Image */}
         <div className="relative">
-          <div
-            className="w-full aspect-square rounded-2xl flex items-center justify-center text-6xl font-bold text-white/70 shadow-lg"
-            style={{
-              background: `linear-gradient(135deg, hsl(${(product.name.charCodeAt(0) * 37) % 360}, 60%, 55%), hsl(${(product.name.charCodeAt(0) * 37 + 60) % 360}, 70%, 45%))`,
-            }}
-          >
-            {initials}
-          </div>
+          {product.images && product.images.length > 0 && product.images[0] ? (
+            <img
+              src={product.images[0]}
+              alt={product.nameAr ?? product.name}
+              className="w-full aspect-square rounded-2xl object-cover shadow-lg"
+            />
+          ) : (
+            <div
+              className="w-full aspect-square rounded-2xl flex items-center justify-center text-6xl font-bold text-white/70 shadow-lg"
+              style={{
+                background: `linear-gradient(135deg, hsl(${(product.name.charCodeAt(0) * 37) % 360}, 60%, 55%), hsl(${(product.name.charCodeAt(0) * 37 + 60) % 360}, 70%, 45%))`,
+              }}
+            >
+              {initials}
+            </div>
+          )}
 
           {/* Discount Badge */}
           {discountPercentage && (
