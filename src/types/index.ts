@@ -2,8 +2,10 @@ export interface Product {
   id: string;
   name: string;
   nameAr?: string;
+  nameFr?: string;
   description?: string;
   descriptionAr?: string;
+  descriptionFr?: string;
   price: number;
   comparePrice?: number;
   images: string[];
@@ -23,6 +25,7 @@ export interface Category {
   id: string;
   name: string;
   nameAr?: string;
+  nameFr?: string;
   icon?: string;
   image?: string;
   products?: Product[];

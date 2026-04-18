@@ -1,11 +1,16 @@
 'use client';
 
 import { useStore } from '@/lib/store';
+import { getTranslation, getDirection } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { ShoppingBag, Sparkles } from 'lucide-react';
 
 export default function HeroSection() {
   const setPage = useStore((s) => s.setPage);
+  const locale = useStore((s) => s.locale);
+  const t = getTranslation(locale);
+  const dir = getDirection(locale);
+  const isRTL = dir === 'rtl';
 
   return (
     <section className="relative overflow-hidden rounded-2xl mx-4 sm:mx-6 mt-4">
@@ -21,18 +26,18 @@ export default function HeroSection() {
           <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
             <Sparkles className="w-5 h-5 text-white" />
             <span className="text-white/90 text-sm font-medium">
-              منتجات طبيعية 100%
+              {t.naturalProducts}
             </span>
           </div>
 
           {/* Main Heading */}
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight">
-            مرحباً بك في بذور الحياة
+            {t.heroTitle}
           </h1>
 
           {/* Subtitle */}
           <p className="text-white/85 text-base sm:text-lg lg:text-xl max-w-2xl leading-relaxed">
-            اكتشف أفضل منتجات التجميل والأعشاب الطبيعية ومواد التنظيف
+            {t.heroSubtitle}
           </p>
 
           {/* CTA Button */}
@@ -41,8 +46,8 @@ export default function HeroSection() {
             size="lg"
             className="bg-white text-emerald-700 hover:bg-white/90 font-bold text-base sm:text-lg px-8 py-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 mt-2"
           >
-            <ShoppingBag className="w-5 h-5 ml-2" />
-            تسوق الآن
+            <ShoppingBag className={`w-5 h-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
+            {t.shopNow}
           </Button>
         </div>
       </div>

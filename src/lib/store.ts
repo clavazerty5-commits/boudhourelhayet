@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CartItem, PageName, Employee } from '@/types';
+import type { Locale } from '@/lib/i18n';
 
 interface StoreState {
   // Cart state
@@ -34,6 +35,10 @@ interface StoreState {
   setCurrentEmployee: (employee: Employee | null) => void;
   employeeRole: string;
   setEmployeeRole: (role: string) => void;
+
+  // Language state
+  locale: Locale;
+  setLocale: (locale: Locale) => void;
 }
 
 export const useStore = create<StoreState>()(
@@ -137,6 +142,13 @@ export const useStore = create<StoreState>()(
       setEmployeeRole: (role: string) => {
         set({ employeeRole: role });
       },
+
+      // Language state
+      locale: 'ar',
+
+      setLocale: (locale: Locale) => {
+        set({ locale });
+      },
     }),
     {
       name: 'ecommerce-store',
@@ -149,6 +161,7 @@ export const useStore = create<StoreState>()(
         adminTab: state.adminTab,
         currentEmployee: state.currentEmployee,
         employeeRole: state.employeeRole,
+        locale: state.locale,
       }),
     }
   )

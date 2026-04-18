@@ -7,10 +7,8 @@ import {
   Shield,
   Facebook,
   Menu,
-  X,
   Store,
   Home,
-  Settings,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +22,8 @@ import {
   SheetClose,
 } from '@/components/ui/sheet';
 import { useStore } from '@/lib/store';
+import { getTranslation, getDirection } from '@/lib/i18n';
+import LanguageSwitcher from '@/components/store/LanguageSwitcher';
 
 export default function Header() {
   const {
@@ -32,45 +32,50 @@ export default function Header() {
     setSearchQuery,
     currentPage,
     setPage,
+    locale,
   } = useStore();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const t = getTranslation(locale);
+  const dir = getDirection(locale);
+  const isRTL = dir === 'rtl';
 
   const cartItemCount = items.reduce((total, item) => total + item.quantity, 0);
 
   return (
     <header
-      dir="rtl"
+      dir={dir}
       className="sticky top-0 z-50 w-full border-b bg-white shadow-sm"
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6">
-        {/* Logo - Right side in RTL */}
+        {/* Logo */}
         <button
           onClick={() => setPage('shop')}
           className="flex shrink-0 items-center gap-2 transition-opacity hover:opacity-80"
-          aria-label="الصفحة الرئيسية"
+          aria-label={t.home}
         >
           <div className="flex size-9 items-center justify-center rounded-lg bg-emerald-600 text-white">
             <Store className="size-5" />
           </div>
           <span className="hidden text-lg font-bold text-emerald-700 sm:inline-block">
-            متجر بذور الحياة
+            {t.storeName}
           </span>
         </button>
 
         {/* Search Bar - Middle (hidden on mobile) */}
         <div className="relative hidden flex-1 md:block">
-          <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className={`pointer-events-none absolute top-1/2 size-4 -translate-y-1/2 text-muted-foreground ${isRTL ? 'right-3' : 'left-3'}`} />
           <Input
             type="text"
-            placeholder="ابحث عن منتجات..."
+            placeholder={t.searchPlaceholder}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-10 w-full pr-10 pl-4 bg-gray-50 border-gray-200 focus-visible:border-emerald-500 focus-visible:ring-emerald-500/30"
+            className={`h-10 w-full bg-gray-50 border-gray-200 focus-visible:border-emerald-500 focus-visible:ring-emerald-500/30 ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'}`}
           />
         </div>
 
-        {/* Action Buttons - Left side in RTL */}
+        {/* Action Buttons */}
         <div className="flex items-center gap-1">
           {/* Cart Button */}
           <Button
@@ -78,11 +83,11 @@ export default function Header() {
             size="icon"
             onClick={() => setPage('cart')}
             className="relative text-gray-600 hover:text-emerald-600 hover:bg-emerald-50"
-            aria-label={`سلة التسوق (${cartItemCount} عنصر)`}
+            aria-label={`${t.cart} (${t.cartItems.replace('{count}', String(cartItemCount))})`}
           >
             <ShoppingCart className="size-5" />
             {cartItemCount > 0 && (
-              <Badge className="absolute -top-1 -left-1 flex size-5 items-center justify-center rounded-full bg-emerald-600 p-0 text-[10px] font-bold text-white hover:bg-emerald-600 border-0">
+              <Badge className={`absolute ${isRTL ? '-top-1 -left-1' : '-top-1 -right-1'} flex size-5 items-center justify-center rounded-full bg-emerald-600 p-0 text-[10px] font-bold text-white hover:bg-emerald-600 border-0`}>
                 {cartItemCount > 99 ? '99+' : cartItemCount}
               </Badge>
             )}
@@ -96,7 +101,7 @@ export default function Header() {
             className={`text-gray-600 hover:bg-emerald-50 hover:text-emerald-600 ${
               currentPage === 'admin' ? 'bg-emerald-50 text-emerald-600' : ''
             }`}
-            aria-label="لوحة الإدارة"
+            aria-label={t.adminPanel}
           >
             <Shield className="size-5" />
           </Button>
@@ -112,11 +117,14 @@ export default function Header() {
               href="https://facebook.com"
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="صفحة الفيسبوك"
+              aria-label={t.facebookPage}
             >
               <Facebook className="size-5" />
             </a>
           </Button>
+
+          {/* Language Switcher */}
+          <LanguageSwitcher />
 
           {/* Mobile Menu Trigger */}
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
@@ -125,31 +133,31 @@ export default function Header() {
                 variant="ghost"
                 size="icon"
                 className="text-gray-600 hover:bg-emerald-50 hover:text-emerald-600 md:hidden"
-                aria-label="القائمة"
+                aria-label={t.menu}
               >
                 <Menu className="size-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-[300px] sm:w-[350px]">
+            <SheetContent side={isRTL ? 'right' : 'left'} className="w-[300px] sm:w-[350px]">
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2 text-emerald-700">
                   <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-600 text-white">
                     <Store className="size-4" />
                   </div>
-                  متجر بذور الحياة
+                  {t.storeName}
                 </SheetTitle>
               </SheetHeader>
 
               <div className="flex flex-col gap-4 px-4 pb-6">
                 {/* Mobile Search */}
                 <div className="relative">
-                  <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Search className={`pointer-events-none absolute top-1/2 size-4 -translate-y-1/2 text-muted-foreground ${isRTL ? 'right-3' : 'left-3'}`} />
                   <Input
                     type="text"
-                    placeholder="ابحث عن منتجات..."
+                    placeholder={t.searchPlaceholder}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="h-10 w-full pr-10 pl-4 bg-gray-50 border-gray-200 focus-visible:border-emerald-500 focus-visible:ring-emerald-500/30"
+                    className={`h-10 w-full bg-gray-50 border-gray-200 focus-visible:border-emerald-500 focus-visible:ring-emerald-500/30 ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'}`}
                   />
                 </div>
 
@@ -166,7 +174,7 @@ export default function Header() {
                       onClick={() => setPage('shop')}
                     >
                       <Home className="size-5" />
-                      الرئيسية
+                      {t.home}
                     </Button>
                   </SheetClose>
 
@@ -181,9 +189,9 @@ export default function Header() {
                       onClick={() => setPage('cart')}
                     >
                       <ShoppingCart className="size-5" />
-                      سلة التسوق
+                      {t.cart}
                       {cartItemCount > 0 && (
-                        <Badge className="mr-auto bg-emerald-600 text-white hover:bg-emerald-600 border-0">
+                        <Badge className={`${isRTL ? 'mr-auto' : 'ml-auto'} bg-emerald-600 text-white hover:bg-emerald-600 border-0`}>
                           {cartItemCount}
                         </Badge>
                       )}
@@ -201,7 +209,7 @@ export default function Header() {
                       onClick={() => setPage('admin')}
                     >
                       <Shield className="size-5" />
-                      لوحة الإدارة
+                      {t.adminPanel}
                     </Button>
                   </SheetClose>
 
@@ -217,10 +225,13 @@ export default function Header() {
                         rel="noopener noreferrer"
                       >
                         <Facebook className="size-5" />
-                        صفحة الفيسبوك
+                        {t.facebookPage}
                       </a>
                     </Button>
                   </SheetClose>
+
+                  {/* Mobile Language Switcher */}
+                  <LanguageSwitcher variant="mobile" />
                 </nav>
               </div>
             </SheetContent>

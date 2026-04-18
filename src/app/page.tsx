@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useStore } from '@/lib/store'
+import { getDirection } from '@/lib/i18n'
 import Header from '@/components/store/Header'
 import HeroSection from '@/components/store/HeroSection'
 import ProductGrid from '@/components/store/ProductGrid'
@@ -13,6 +14,7 @@ import Footer from '@/components/store/Footer'
 
 export default function Home() {
   const currentPage = useStore((state) => state.currentPage)
+  const locale = useStore((state) => state.locale)
 
   // Seed the database on first load
   useEffect(() => {
@@ -28,6 +30,14 @@ export default function Home() {
     }
     seedDatabase()
   }, [])
+
+  // Update HTML lang and dir attributes when locale changes
+  useEffect(() => {
+    const dir = getDirection(locale)
+    const lang = locale === 'ar' ? 'ar' : 'fr'
+    document.documentElement.lang = lang
+    document.documentElement.dir = dir
+  }, [locale])
 
   // Render the current page based on store state
   const renderPage = () => {

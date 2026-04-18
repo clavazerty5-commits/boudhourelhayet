@@ -1,20 +1,26 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import type { Locale } from '@/lib/i18n';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
 /**
- * Format a price number with Tunisian Dinar currency symbol.
- * Example: formatPrice(1500) → "1,500 د.ت"
+ * Format a price number with currency symbol based on locale.
+ * Arabic: "1,500 د.ت"
+ * French: "1,500 TND"
  */
-export function formatPrice(price: number): string {
-  const formatted = price.toLocaleString('ar-TN', {
+export function formatPrice(price: number, locale: Locale = 'ar'): string {
+  const localeStr = locale === 'ar' ? 'ar-TN' : 'fr-TN';
+  const formatted = price.toLocaleString(localeStr, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 3,
   });
-  return `${formatted} د.ت`;
+  if (locale === 'ar') {
+    return `${formatted} د.ت`;
+  }
+  return `${formatted} TND`;
 }
 
 /**

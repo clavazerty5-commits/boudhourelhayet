@@ -14,18 +14,19 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "بذور الحياة - منتجات تجميل وأعشاب طبيعية",
-  description: "متجرك لمنتجات التجميل والأعشاب الطبيعية ومواد التنظيف. منتجات طبيعية 100% بتوصيل لجميع أنحاء الجمهورية التونسية.",
-  keywords: ["بذور الحياة", "تجميل", "أعشاب طبيعية", "مواد تنظيف", "تونس", "منتجات طبيعية", "مستحضرات تجميل"],
-  authors: [{ name: "بذور الحياة" }],
+  title: "بذور الحياة - Graines de Vie",
+  description: "متجرك لمنتجات التجميل والأعشاب الطبيعية ومواد التنظيف. Votre boutique de produits de beauté, d'herbes naturelles et de nettoyage.",
+  keywords: ["بذور الحياة", "Graines de Vie", "تجميل", "أعشاب طبيعية", "مواد تنظيف", "تونس", "Tunisie", "produits naturels"],
+  authors: [{ name: "بذور الحياة - Graines de Vie" }],
   icons: {
     icon: "/store-logo.png",
   },
   openGraph: {
-    title: "بذور الحياة",
+    title: "بذور الحياة - Graines de Vie",
     description: "منتجات تجميل وأعشاب طبيعية ومواد تنظيف - توصيل لجميع أنحاء تونس",
     type: "website",
     locale: "ar_TN",
+    alternateLocale: "fr_TN",
   },
 };
 
