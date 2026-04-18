@@ -59,6 +59,8 @@ export interface Order {
   shipping: number;
   status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
   paymentMethod: 'cod' | 'card' | 'transfer';
+  paymentStatus: 'unpaid' | 'paid';
+  paidAt?: string | null;
   notes?: string;
   facebookLeadId?: string;
   createdAt: string;

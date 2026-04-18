@@ -64,6 +64,8 @@ model Order {
   shipping    Float       @default(0)
   status      String      @default("pending")
   paymentMethod String    @default("cod")
+  paymentStatus String    @default("unpaid")
+  paidAt      DateTime?
   notes       String?
   facebookLeadId String?
   createdAt   DateTime    @default(now())

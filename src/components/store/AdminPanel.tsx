@@ -60,6 +60,13 @@ import {
   XCircle,
   Settings,
   LayoutDashboard,
+  Wallet,
+  CircleDollarSign,
+  Banknote,
+  TrendingUp,
+  CalendarDays,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -121,6 +128,34 @@ const ORDER_STATUS_COLORS: Record<string, 'default' | 'secondary' | 'destructive
   cancelled: 'destructive',
 };
 
+const PAYMENT_STATUS_MAP: Record<string, string> = {
+  unpaid: 'غير مدفوع',
+  paid: 'مدفوع',
+};
+
+interface TreasuryData {
+  todaySales: number;
+  todayOrdersCount: number;
+  yesterdaySales: number;
+  totalTreasury: number;
+  unpaidTotal: number;
+  unpaidOrdersCount: number;
+  dailyBreakdown: Array<{
+    date: string;
+    dateLabel: string;
+    total: number;
+    ordersCount: number;
+    orders: Array<{
+      id: string;
+      orderNumber: string;
+      total: number;
+      customerName: string;
+      paidAt: string | null;
+      paymentMethod: string;
+    }>;
+  }>;
+}
+
 // ─── AdminPanel Component ────────────────────────────────────────────────────
 
 export default function AdminPanel() {
@@ -154,6 +189,8 @@ export default function AdminPanel() {
   const [savingSettings, setSavingSettings] = useState(false);
   const [pixelActive, setPixelActive] = useState(false);
   const [syncingFacebook, setSyncingFacebook] = useState(false);
+  const [treasury, setTreasury] = useState<TreasuryData | null>(null);
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
 
   // ─── Data Fetching ───────────────────────────────────────────────────────
 
@@ -193,6 +230,18 @@ export default function AdminPanel() {
     }
   }, []);
 
+  const fetchTreasury = useCallback(async () => {
+    try {
+      const res = await fetch('/api/treasury?days=30');
+      if (res.ok) {
+        const data = await res.json();
+        setTreasury(data);
+      }
+    } catch (err) {
+      console.error('Error fetching treasury:', err);
+    }
+  }, []);
+
   const fetchSettings = useCallback(async () => {
     try {
       const res = await fetch('/api/settings');
@@ -218,7 +267,7 @@ export default function AdminPanel() {
   useEffect(() => {
     if (isAdmin) {
       setIsLoading(true);
-      Promise.all([fetchProducts(), fetchOrders(), fetchCategories(), fetchSettings()]).finally(
+      Promise.all([fetchProducts(), fetchOrders(), fetchCategories(), fetchSettings(), fetchTreasury()]).finally(
         () => setIsLoading(false)
       );
     }
@@ -344,8 +393,25 @@ export default function AdminPanel() {
       const res = await fetch(`/api/orders/${orderId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete order');
       fetchOrders();
+      fetchTreasury();
     } catch (err) {
       console.error('Error deleting order:', err);
+    }
+  };
+
+  const handleConfirmPayment = async (orderId: string) => {
+    if (!confirm('هل تريد تأكيد استلام الدفع لهذا الطلب؟')) return;
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentStatus: 'paid' }),
+      });
+      if (!res.ok) throw new Error('Failed to confirm payment');
+      fetchOrders();
+      fetchTreasury();
+    } catch (err) {
+      console.error('Error confirming payment:', err);
     }
   };
 
@@ -527,6 +593,13 @@ export default function AdminPanel() {
               >
                 <Facebook className="w-4 h-4" />
                 <span className="hidden sm:inline">فيسبوك</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="treasury"
+                className="flex items-center gap-1.5 data-[state=active]:bg-emerald-600 data-[state=active]:text-white px-3 py-2 rounded-lg text-sm"
+              >
+                <Wallet className="w-4 h-4" />
+                <span className="hidden sm:inline">الخزينة</span>
               </TabsTrigger>
             </TabsList>
 
@@ -737,6 +810,7 @@ export default function AdminPanel() {
                             <TableHead className="text-right hidden sm:table-cell">العميل</TableHead>
                             <TableHead className="text-right">المبلغ</TableHead>
                             <TableHead className="text-right">الحالة</TableHead>
+                            <TableHead className="text-right">الدفع</TableHead>
                             <TableHead className="text-right hidden md:table-cell">التاريخ</TableHead>
                             <TableHead className="text-right">إجراءات</TableHead>
                           </TableRow>
@@ -771,6 +845,23 @@ export default function AdminPanel() {
                                     ))}
                                   </SelectContent>
                                 </Select>
+                              </TableCell>
+                              <TableCell>
+                                {order.paymentStatus === 'paid' ? (
+                                  <Badge className="bg-green-100 text-green-700 border-green-200 gap-1">
+                                    <CheckCircle2 className="w-3 h-3" />
+                                    مدفوع
+                                  </Badge>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleConfirmPayment(order.id)}
+                                    className="bg-amber-500 hover:bg-amber-600 text-white gap-1 h-7 text-xs"
+                                  >
+                                    <CircleDollarSign className="w-3.5 h-3.5" />
+                                    تأكيد الدفع
+                                  </Button>
+                                )}
                               </TableCell>
                               <TableCell className="hidden md:table-cell text-sm text-gray-600">
                                 {new Date(order.createdAt).toLocaleDateString('ar-TN')}
@@ -1032,6 +1123,162 @@ export default function AdminPanel() {
                   </CardContent>
                 </Card>
               </div>
+            </TabsContent>
+
+            {/* ─── Treasury Tab ─────────────────────────────────────────── */}
+            <TabsContent value="treasury">
+              {treasury ? (
+                <div className="space-y-6">
+                  {/* Treasury Summary Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                    <Card className="border-green-100 shadow-sm hover:shadow-md transition-shadow bg-gradient-to-br from-green-50 to-emerald-50">
+                      <CardHeader className="pb-2">
+                        <CardDescription className="flex items-center gap-2 text-green-700">
+                          <Banknote className="w-5 h-5" />
+                          مبيعات اليوم
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-3xl font-bold text-green-800">
+                          {treasury.todaySales.toLocaleString('ar-TN', { minimumFractionDigits: 3 })} د.ت
+                        </p>
+                        <p className="text-xs text-green-600 mt-1">
+                          {treasury.todayOrdersCount} طلب مدفوع
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-blue-100 shadow-sm hover:shadow-md transition-shadow bg-gradient-to-br from-blue-50 to-indigo-50">
+                      <CardHeader className="pb-2">
+                        <CardDescription className="flex items-center gap-2 text-blue-700">
+                          <TrendingUp className="w-5 h-5" />
+                          مبيعات أمس
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-3xl font-bold text-blue-800">
+                          {treasury.yesterdaySales.toLocaleString('ar-TN', { minimumFractionDigits: 3 })} د.ت
+                        </p>
+                        <p className="text-xs text-blue-600 mt-1">للمقارنة</p>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-emerald-100 shadow-sm hover:shadow-md transition-shadow bg-gradient-to-br from-emerald-50 to-teal-50">
+                      <CardHeader className="pb-2">
+                        <CardDescription className="flex items-center gap-2 text-emerald-700">
+                          <Wallet className="w-5 h-5" />
+                          إجمالي الخزينة
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-3xl font-bold text-emerald-800">
+                          {treasury.totalTreasury.toLocaleString('ar-TN', { minimumFractionDigits: 3 })} د.ت
+                        </p>
+                        <p className="text-xs text-emerald-600 mt-1">جميع المدفوعات</p>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-amber-100 shadow-sm hover:shadow-md transition-shadow bg-gradient-to-br from-amber-50 to-yellow-50">
+                      <CardHeader className="pb-2">
+                        <CardDescription className="flex items-center gap-2 text-amber-700">
+                          <Clock className="w-5 h-5" />
+                          منتظر الدفع
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-3xl font-bold text-amber-700">
+                          {treasury.unpaidTotal.toLocaleString('ar-TN', { minimumFractionDigits: 3 })} د.ت
+                        </p>
+                        <p className="text-xs text-amber-600 mt-1">
+                          {treasury.unpaidOrdersCount} طلب غير مدفوع
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Daily Breakdown */}
+                  <Card className="border-emerald-100 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-emerald-800 flex items-center gap-2">
+                        <CalendarDays className="w-5 h-5" />
+                        المبيعات اليومية - آخر 30 يوم
+                      </CardTitle>
+                      <CardDescription>
+                        اضغط على أي يوم لعرض تفاصيل المدفوعات
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {treasury.dailyBreakdown.map((day) => (
+                          <div key={day.date} className="border rounded-lg overflow-hidden">
+                            <button
+                              onClick={() => setExpandedDay(expandedDay === day.date ? null : day.date)}
+                              className="w-full flex items-center justify-between p-3 hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className={`w-3 h-3 rounded-full ${day.total > 0 ? 'bg-green-500' : 'bg-gray-300'}`} />
+                                <span className="font-medium text-sm text-gray-700">{day.dateLabel}</span>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                {day.ordersCount > 0 && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    {day.ordersCount} طلب
+                                  </Badge>
+                                )}
+                                <span className={`font-bold text-sm ${day.total > 0 ? 'text-green-700' : 'text-gray-400'}`}>
+                                  {day.total.toLocaleString('ar-TN', { minimumFractionDigits: 3 })} د.ت
+                                </span>
+                                {expandedDay === day.date ? (
+                                  <ChevronUp className="w-4 h-4 text-gray-400" />
+                                ) : (
+                                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                                )}
+                              </div>
+                            </button>
+                            {expandedDay === day.date && day.orders.length > 0 && (
+                              <div className="border-t bg-gray-50 p-3">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead className="text-right text-xs">رقم الطلب</TableHead>
+                                      <TableHead className="text-right text-xs">العميل</TableHead>
+                                      <TableHead className="text-right text-xs">المبلغ</TableHead>
+                                      <TableHead className="text-right text-xs">طريقة الدفع</TableHead>
+                                      <TableHead className="text-right text-xs">وقت الدفع</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {day.orders.map((o) => (
+                                      <TableRow key={o.id}>
+                                        <TableCell className="font-mono text-xs">{o.orderNumber}</TableCell>
+                                        <TableCell className="text-xs">{o.customerName}</TableCell>
+                                        <TableCell className="text-xs font-medium">{o.total.toLocaleString('ar-TN', { minimumFractionDigits: 3 })} د.ت</TableCell>
+                                        <TableCell className="text-xs">{o.paymentMethod === 'cod' ? 'عند الاستلام' : 'تحويل بنكي'}</TableCell>
+                                        <TableCell className="text-xs text-gray-500">
+                                          {o.paidAt ? new Date(o.paidAt).toLocaleTimeString('ar-TN', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            )}
+                            {expandedDay === day.date && day.orders.length === 0 && (
+                              <div className="border-t bg-gray-50 p-3 text-center text-gray-400 text-sm">
+                                لا توجد مدفوعات في هذا اليوم
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center py-20">
+                  <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin" />
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         )}

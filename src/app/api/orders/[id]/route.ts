@@ -58,7 +58,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { status, paymentMethod, notes, shipping, facebookLeadId } = body;
+    const { status, paymentMethod, paymentStatus, notes, shipping, facebookLeadId } = body;
 
     const existingOrder = await db.order.findUnique({
       where: { id },
@@ -79,6 +79,14 @@ export async function PUT(
       );
     }
 
+    const validPaymentStatuses = ['unpaid', 'paid'];
+    if (paymentStatus && !validPaymentStatuses.includes(paymentStatus)) {
+      return NextResponse.json(
+        { error: `Invalid payment status. Valid statuses are: ${validPaymentStatuses.join(', ')}` },
+        { status: 400 }
+      );
+    }
+
     const updateData: Record<string, unknown> = {};
 
     if (status !== undefined) updateData.status = status;
@@ -86,6 +94,16 @@ export async function PUT(
     if (notes !== undefined) updateData.notes = notes;
     if (shipping !== undefined) updateData.shipping = parseFloat(shipping);
     if (facebookLeadId !== undefined) updateData.facebookLeadId = facebookLeadId;
+    
+    // Handle payment status changes
+    if (paymentStatus !== undefined) {
+      updateData.paymentStatus = paymentStatus;
+      if (paymentStatus === 'paid' && existingOrder.paymentStatus !== 'paid') {
+        updateData.paidAt = new Date();
+      } else if (paymentStatus === 'unpaid') {
+        updateData.paidAt = null;
+      }
+    }
 
     // If status changed to cancelled, restore product stock
     if (status === 'cancelled' && existingOrder.status !== 'cancelled') {
