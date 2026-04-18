@@ -91,7 +91,7 @@ export function trackAddToCart(product: {
     content_name: product.name,
     content_type: 'product',
     value: product.price,
-    currency: 'DZD',
+    currency: 'TND',
     contents: [
       {
         id: product.id,

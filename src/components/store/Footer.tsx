@@ -48,11 +48,9 @@ export default function Footer() {
         <div className="grid grid-cols-1 gap-10 md:grid-cols-3">
           {/* Column 1: About the Store */}
           <div className="space-y-4">
-            <h3 className="text-xl font-bold text-white">متجر إلكتروني</h3>
+            <h3 className="text-xl font-bold text-white">بذور الحياة</h3>
             <p className="leading-relaxed text-gray-400">
-              وجهتك المثالية للتسوق الإلكتروني. نقدم لك أفضل المنتجات بأسعار
-              تنافسية مع خدمة توصيل سريعة وسياسة إرجاع مرنة. تسوق بثقة وراحة
-              من أي مكان.
+              وجهتك المثالية لمنتجات التجميل والأعشاب الطبيعية ومواد التنظيف. نقدم لك أفضل المنتجات الطبيعية بأسعار تنافسية مع خدمة توصيل لجميع أنحاء الجمهورية التونسية. تسوق بثقة وراحة من أي مكان.
             </p>
             {/* Social Media Icons */}
             <div className="flex items-center gap-3 pt-2">
@@ -96,29 +94,29 @@ export default function Footer() {
             <ul className="space-y-4">
               <li>
                 <a
-                  href="tel:+966500000000"
+                  href="tel:+21695753312"
                   className="flex items-center gap-3 text-gray-400 transition-colors duration-200 hover:text-white"
                 >
                   <Phone className="h-5 w-5 shrink-0 text-emerald-400" />
-                  <span dir="ltr">+966 50 000 0000</span>
+                  <span dir="ltr">00 216 95 753 312</span>
                 </a>
               </li>
               <li>
                 <a
-                  href="mailto:info@store.sa"
+                  href="mailto:boudhourelhayet@gmail.com"
                   className="flex items-center gap-3 text-gray-400 transition-colors duration-200 hover:text-white"
                 >
                   <Mail className="h-5 w-5 shrink-0 text-emerald-400" />
-                  <span>info@store.sa</span>
+                  <span>boudhourelhayet@gmail.com</span>
                 </a>
               </li>
               <li className="flex items-start gap-3 text-gray-400">
                 <MapPin className="h-5 w-5 shrink-0 text-emerald-400" />
-                <span>الرياض، المملكة العربية السعودية</span>
+                <span>الجمهورية التونسية</span>
               </li>
               <li>
                 <a
-                  href="https://wa.me/966500000000"
+                  href="https://wa.me/21695753312"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-emerald-700"
@@ -136,7 +134,7 @@ export default function Footer() {
       <Separator className="bg-gray-700" />
       <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
         <p className="text-center text-sm text-gray-500">
-          © 2025 متجر إلكتروني. جميع الحقوق محفوظة.
+          © 2025 بذور الحياة. جميع الحقوق محفوظة.
         </p>
       </div>
     </footer>

@@ -21,18 +21,18 @@ export default function HeroSection() {
           <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
             <Sparkles className="w-5 h-5 text-white" />
             <span className="text-white/90 text-sm font-medium">
-              عروض حصرية
+              منتجات طبيعية 100%
             </span>
           </div>
 
           {/* Main Heading */}
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight">
-            مرحباً بك في متجرنا
+            مرحباً بك في بذور الحياة
           </h1>
 
           {/* Subtitle */}
           <p className="text-white/85 text-base sm:text-lg lg:text-xl max-w-2xl leading-relaxed">
-            اكتشف أحدث المنتجات بأفضل الأسعار
+            اكتشف أفضل منتجات التجميل والأعشاب الطبيعية ومواد التنظيف
           </p>
 
           {/* CTA Button */}

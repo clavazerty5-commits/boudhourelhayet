@@ -567,7 +567,7 @@ export default function AdminPanel() {
                   </CardHeader>
                   <CardContent>
                     <p className="text-3xl font-bold text-emerald-800">
-                      {totalRevenue.toLocaleString('ar-SA')} ر.س
+                      {totalRevenue.toLocaleString('ar-TN')} د.ت
                     </p>
                   </CardContent>
                 </Card>
@@ -599,7 +599,7 @@ export default function AdminPanel() {
                                 {order.orderNumber}
                               </TableCell>
                               <TableCell>{order.customer?.name || '—'}</TableCell>
-                              <TableCell>{order.total.toLocaleString('ar-SA')} ر.س</TableCell>
+                              <TableCell>{order.total.toLocaleString('ar-TN')} د.ت</TableCell>
                               <TableCell>
                                 <Badge variant={ORDER_STATUS_COLORS[order.status] || 'outline'}>
                                   {ORDER_STATUS_MAP[order.status] || order.status}
@@ -653,7 +653,7 @@ export default function AdminPanel() {
                                 {product.nameAr || product.name}
                               </TableCell>
                               <TableCell className="hidden md:table-cell">
-                                {product.price.toLocaleString('ar-SA')} ر.س
+                                {product.price.toLocaleString('ar-TN')} د.ت
                               </TableCell>
                               <TableCell className="hidden sm:table-cell">
                                 <Badge
@@ -738,7 +738,7 @@ export default function AdminPanel() {
                                 {order.customer?.name || '—'}
                               </TableCell>
                               <TableCell>
-                                {order.total.toLocaleString('ar-SA')} ر.س
+                                {order.total.toLocaleString('ar-TN')} د.ت
                               </TableCell>
                               <TableCell>
                                 <Select
@@ -760,7 +760,7 @@ export default function AdminPanel() {
                                 </Select>
                               </TableCell>
                               <TableCell className="hidden md:table-cell text-sm text-gray-600">
-                                {new Date(order.createdAt).toLocaleDateString('ar-SA')}
+                                {new Date(order.createdAt).toLocaleDateString('ar-TN')}
                               </TableCell>
                               <TableCell>
                                 <Button
@@ -831,7 +831,7 @@ export default function AdminPanel() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="shippingFee">رسوم الشحن (ر.س)</Label>
+                      <Label htmlFor="shippingFee">رسوم الشحن (د.ت)</Label>
                       <Input
                         id="shippingFee"
                         type="number"
@@ -844,7 +844,7 @@ export default function AdminPanel() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="freeShippingThreshold">حد الشحن المجاني (ر.س)</Label>
+                      <Label htmlFor="freeShippingThreshold">حد الشحن المجاني (د.ت)</Label>
                       <Input
                         id="freeShippingThreshold"
                         type="number"
@@ -1079,7 +1079,7 @@ export default function AdminPanel() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="prod-price">السعر (ر.س)</Label>
+              <Label htmlFor="prod-price">السعر (د.ت)</Label>
               <Input
                 id="prod-price"
                 type="number"
@@ -1093,7 +1093,7 @@ export default function AdminPanel() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="prod-comparePrice">سعر المقارنة (ر.س)</Label>
+              <Label htmlFor="prod-comparePrice">سعر المقارنة (د.ت)</Label>
               <Input
                 id="prod-comparePrice"
                 type="number"
@@ -1238,8 +1238,8 @@ export default function AdminPanel() {
                           {item.product?.nameAr || item.product?.name || 'منتج محذوف'}
                         </TableCell>
                         <TableCell>{item.quantity}</TableCell>
-                        <TableCell>{item.price.toLocaleString('ar-SA')} ر.س</TableCell>
-                        <TableCell>{item.total.toLocaleString('ar-SA')} ر.س</TableCell>
+                        <TableCell>{item.price.toLocaleString('ar-TN')} د.ت</TableCell>
+                        <TableCell>{item.total.toLocaleString('ar-TN')} د.ت</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -1250,15 +1250,15 @@ export default function AdminPanel() {
               <div className="bg-emerald-50 rounded-lg p-4 space-y-1">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">المجموع الفرعي:</span>
-                  <span>{selectedOrder.subtotal.toLocaleString('ar-SA')} ر.س</span>
+                  <span>{selectedOrder.subtotal.toLocaleString('ar-TN')} د.ت</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">الشحن:</span>
-                  <span>{selectedOrder.shipping.toLocaleString('ar-SA')} ر.س</span>
+                  <span>{selectedOrder.shipping.toLocaleString('ar-TN')} د.ت</span>
                 </div>
                 <div className="flex justify-between font-bold text-emerald-800 pt-1 border-t border-emerald-200">
                   <span>الإجمالي:</span>
-                  <span>{selectedOrder.total.toLocaleString('ar-SA')} ر.س</span>
+                  <span>{selectedOrder.total.toLocaleString('ar-TN')} د.ت</span>
                 </div>
               </div>
 

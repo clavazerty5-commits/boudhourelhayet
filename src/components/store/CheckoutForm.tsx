@@ -29,72 +29,39 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 
-// Common Algerian cities
-const ALGERIAN_CITIES = [
-  'أدرار',
-  'الشلف',
-  'الأغواط',
-  'أم البواقي',
-  'باتنة',
-  'بجاية',
-  'بسكرة',
-  'بشار',
-  'البليدة',
-  'البويرة',
-  'تمنراست',
-  'تبسة',
-  'تلمسان',
-  'تيارت',
-  'تيزي وزو',
-  'الجزائر',
-  'الجلفة',
-  'جيجل',
-  'سطيف',
-  'سعيدة',
-  'سكيكدة',
-  'سيدي بلعباس',
-  'عنابة',
-  'قالمة',
-  'قسنطينة',
-  'المدية',
-  'مستغانم',
-  'المسيلة',
-  'معسكر',
-  'ورقلة',
-  'وهران',
-  'البيض',
-  'إليزي',
-  'برج بوعريريج',
-  'بومرداس',
-  'الطارف',
-  'تندوف',
-  'تيسمسيلت',
-  'الوادي',
-  'خنشلة',
-  'سوق أهراس',
-  'تيبازة',
-  'ميلة',
-  'عين الدفلى',
-  'النعامة',
-  'عين تموشنت',
-  'غرداية',
-  'غليزان',
-  'المنيعة',
-  'عين صالح',
-  'عين قزام',
-  'تيميمون',
-  'برج باجي مختار',
-  'أولاد جلال',
-  'بني عباس',
-  'تين زواتين',
-  'جانت',
-  'المغير',
-  'المنيعة',
+// Tunisian governorates (الولايات التونسية)
+const TUNISIAN_GOVERNORATES = [
+  'تونس',
+  'أريانة',
+  'بن عروس',
+  'منوبة',
+  'نابل',
+  'زغوان',
+  'بنزرت',
+  'باجة',
+  'جندوبة',
+  'الكاف',
+  'سليانة',
+  'القيروان',
+  'القصرين',
+  'سيدي بوزيد',
+  'صفاقس',
+  'المهدية',
+  'المنستير',
+  'سوسة',
+  'تطاوين',
+  'قبلي',
+  'قفصة',
+  'توزر',
+  'قابس',
+  'مدنين',
+  'صفاقس',
+  'الكاف',
 ];
 
-// Default shipping fee
-const DEFAULT_SHIPPING_FEE = 500;
-const FREE_SHIPPING_THRESHOLD = 5000;
+// Default shipping fee (TND)
+const DEFAULT_SHIPPING_FEE = 8;
+const FREE_SHIPPING_THRESHOLD = 80;
 
 interface FormData {
   name: string;
@@ -461,7 +428,7 @@ export default function CheckoutForm() {
                       <SelectValue placeholder="اختر المدينة" />
                     </SelectTrigger>
                     <SelectContent>
-                      {ALGERIAN_CITIES.map((city) => (
+                      {TUNISIAN_GOVERNORATES.map((city) => (
                         <SelectItem key={city} value={city}>
                           {city}
                         </SelectItem>

@@ -6,15 +6,15 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Format a price number with Algerian Dinar currency symbol.
- * Example: formatPrice(1500) → "1,500 د.ج"
+ * Format a price number with Tunisian Dinar currency symbol.
+ * Example: formatPrice(1500) → "1,500 د.ت"
  */
 export function formatPrice(price: number): string {
-  const formatted = price.toLocaleString('ar-DZ', {
+  const formatted = price.toLocaleString('ar-TN', {
     minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
+    maximumFractionDigits: 3,
   });
-  return `${formatted} د.ج`;
+  return `${formatted} د.ت`;
 }
 
 /**

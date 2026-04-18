@@ -54,7 +54,7 @@ export default function Header() {
             <Store className="size-5" />
           </div>
           <span className="hidden text-lg font-bold text-emerald-700 sm:inline-block">
-            متجر إلكتروني
+            متجر بذور الحياة
           </span>
         </button>
 
@@ -136,7 +136,7 @@ export default function Header() {
                   <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-600 text-white">
                     <Store className="size-4" />
                   </div>
-                  متجر إلكتروني
+                  متجر بذور الحياة
                 </SheetTitle>
               </SheetHeader>
 
